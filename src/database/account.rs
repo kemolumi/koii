@@ -7,7 +7,7 @@ use mongodb::{
 };
 use serde::{ Deserialize, Serialize };
 
-use crate::consts::{ EMAIL_VERIFY_EXPIRE, ACCOUNT_DELETE_FRAME };
+use crate::consts::{ EMAIL_VERIFY_EXPIRE, ACCOUNT_DELETE_WINDOW };
 
 #[derive(Deserialize, Serialize)]
 pub struct AccountDocument {
@@ -73,7 +73,7 @@ impl AccountOperations {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "deleted": 1 })
-                .options(IndexOptions::builder().expire_after(ACCOUNT_DELETE_FRAME).build())
+                .options(IndexOptions::builder().expire_after(ACCOUNT_DELETE_WINDOW).build())
                 .build()
         ).await?;
 
