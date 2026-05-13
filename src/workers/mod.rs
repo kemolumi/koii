@@ -25,6 +25,8 @@ pub struct Workers {
 }
 impl Workers {
     pub fn new(allocate: WorkersAllocate) -> Self {
+        tracing::info!("Spawning workers...");
+
         Workers {
             hash_pass: RequestHandler::new(
                 hash_pass::launch,
