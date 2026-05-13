@@ -5,12 +5,14 @@ use axum::{
     http::{ StatusCode, header::SET_COOKIE },
     response::AppendHeaders,
 };
+use mongodb::bson;
 use serde::Deserialize;
 use validator::Validate;
 
 use crate::{
     base::{ self, cookies, response::ResponseModel },
     consts::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE },
+    database::totp_code::TotpCodeDocument,
     middlewares::auth::{ AuthorizationInfo, AuthorizationStatus },
     routes::account::AccountRoutesState,
     workers::verify_pass::VerifyPassRequest,
@@ -22,10 +24,10 @@ pub struct LoginPayload {
     pub email: String,
     #[validate(length(min = 12))]
     pub password: String,
-    #[validate(length(max = 2048))]
-    pub clientstile: String,
     #[validate(length(equal = 6))]
     pub totp_code: Option<String>,
+    #[validate(length(max = 2048))]
+    pub clientstile: String,
 }
 
 pub async fn handler(
@@ -128,7 +130,7 @@ pub async fn handler(
             };
 
             match totp.verify(&totp_code) {
-                Ok(true) => {} // Correct token, passing down.
+                Ok(true) => {} // Correct TOTP code, passing down.
                 Ok(false) => {
                     return base::response::error(
                         StatusCode::UNAUTHORIZED,
@@ -137,6 +139,27 @@ pub async fn handler(
                     );
                 }
                 Err(_) => {
+                    return base::response::internal_error(None);
+                }
+            }
+
+            let entry = TotpCodeDocument {
+                account_id: account.account_id.clone(),
+                code: totp_code,
+                created_at: bson::DateTime::now(),
+            };
+
+            match state.app.db.totp_code.use_code(&entry).await {
+                Ok(true) => {} // New TOTP code used, passing down.
+                Ok(false) => {
+                    return base::response::error(
+                        StatusCode::UNAUTHORIZED,
+                        "Wrong TOTP code.",
+                        None
+                    );
+                }
+                Err(error) => {
+                    tracing::error!("Use TOTP failed: {error}");
                     return base::response::internal_error(None);
                 }
             }
@@ -149,8 +172,8 @@ pub async fn handler(
 
     let (token, refresh) = state.app.jwt.generate_pair(account.account_id.clone());
 
-    match state.app.db.token.clone().add(refresh.0).await {
-        Ok(true) => {}
+    match state.app.db.token.clone().issue(refresh.0).await {
+        Ok(true) => {} // Token stored to db, passing down.
         Ok(false) => {
             tracing::error!("Gem alert {}.", &account.account_id);
             return base::response::error(
@@ -160,7 +183,7 @@ pub async fn handler(
             );
         }
         Err(error) => {
-            tracing::error!("Unable to add a token for {}: {}", &account.account_id, error);
+            tracing::error!("Unable to issue a token for {}: {}", &account.account_id, error);
             return base::response::internal_error(None);
         }
     }
