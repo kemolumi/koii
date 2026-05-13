@@ -8,4 +8,4 @@ RUN mv /target/release/koii /
 
 EXPOSE 8340
 
-CMD ["koii", "secure"]
+CMD ["./koii", "secure"]
