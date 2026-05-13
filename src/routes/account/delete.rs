@@ -22,11 +22,8 @@ pub async fn handler(
         }
     }
 
-    let token = match authorization_info.token {
-        Some(token) => token,
-        None => {
-            return base::response::internal_error(None);
-        }
+    let Some(token) = authorization_info.token else {
+        return base::response::internal_error(None);
     };
 
     // Safely remove the account first, if fail, don't remove token.
