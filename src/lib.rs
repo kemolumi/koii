@@ -11,6 +11,7 @@ use tower_http::cors::CorsLayer;
 use crate::{
     database::Database,
     middlewares::track,
+    routes::ily,
     utils::{ jwt::Jwt, turnstile::Turnstile },
     workers::{ WorkerSpec, Workers, WorkersAllocate },
 };
@@ -126,6 +127,7 @@ pub async fn app(debug: bool) -> Router {
 
     Router::new()
         .nest("/account", routes::account::routes(app_state.clone()))
+        .route("/ily", axum::routing::get(ily::handler))
         .layer(middleware::from_fn(track::log_requests))
         .layer(DefaultBodyLimit::max(1 * 1024 * 1024))
         .layer(cors)
