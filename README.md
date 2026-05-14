@@ -21,7 +21,7 @@ Rate limits is configured by tightrope, a load balancer to hold everything toget
 
 This rate limits apply for unauthenticated users:
 - **Signing up**: 10 accounts can be created from a single IPv4/v6 address every 3 hours.
-- **Loging in**: 20 login operations can be made from a single IPv4/v6 address every 2 hours.
+- **Logging in**: 20 login operations can be made from a single IPv4/v6 address every 2 hours.
 
 For authenticated users, there will be rate limits too, though it won't have much of an impact if you don't do anything crazy, more details later as I build this thing.
 
