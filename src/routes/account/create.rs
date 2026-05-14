@@ -65,6 +65,17 @@ pub async fn handler(
         }
     }
 
+    match state.app.db.account.get_from_email(&payload.email).await {
+        Ok(None) => {} // Account not found at this point, passing down to do hash.
+        Ok(Some(_)) => {
+            return base::response::error(StatusCode::CONFLICT, "Email already registered.", None);
+        }
+        Err(error) => {
+            tracing::error!("Database failed to find {}: {}", &payload.email, error);
+            return base::response::internal_error(None);
+        }
+    }
+
     let account_id = nanoid!(ACCOUNT_ID_LENGTH);
     let verify_code = if !state.app.debug {
         nanoid!(EMAIL_VERIFY_CODE_LENGTH)
