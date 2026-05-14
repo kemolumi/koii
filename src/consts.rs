@@ -12,7 +12,7 @@ pub const JWT_VALIDATION_ALGORITHM: jsonwebtoken::Algorithm = jsonwebtoken::Algo
 
 // Argon2 ariables.
 pub const ARGON2_MEMORY_COST: u32 = 128 * 1024; // 128 mb
-pub const ARGON2_PARALLELISM_COST: u32 = 4;
+pub const ARGON2_PARALLELISM_COST: u32 = 1;
 pub const ARGON2_TIME_COST: u32 = 5;
 pub const ARGON2_OUTPUT_LENGTH: usize = 64; // 64 bytes
 
