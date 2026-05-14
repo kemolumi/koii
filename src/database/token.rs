@@ -91,8 +91,13 @@ impl TokenOperations {
         }
 
         // Preload cache.
-        self.cache.set::<&str, bool, String>(&cache_key, true).await?;
-        self.cache.expire_at::<&str, bool>(&cache_key, claims.exp as i64).await?;
+        redis
+            ::cmd("SET")
+            .arg(&cache_key)
+            .arg(true)
+            .arg("EX")
+            .arg(REFRESH_MAX_AGE.as_secs())
+            .exec_async(&mut self.cache).await?;
 
         Ok(true)
     }
@@ -157,8 +162,13 @@ impl TokenOperations {
 
         let cache_key = format!("account:{}:token:{}", claims.account_id, claims.identifier);
 
-        self.cache.set::<&str, bool, String>(&cache_key, exists == 1).await?;
-        self.cache.expire_at::<&str, bool>(&cache_key, claims.exp as i64).await?;
+        redis
+            ::cmd("SET")
+            .arg(&cache_key)
+            .arg(exists == 1)
+            .arg("EX")
+            .arg(REFRESH_MAX_AGE.as_secs())
+            .exec_async(&mut self.cache).await?;
 
         Ok(exists == 1)
     }
