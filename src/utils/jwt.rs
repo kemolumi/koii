@@ -13,24 +13,22 @@ use crate::env::{
 };
 
 #[derive(Clone, Serialize, Deserialize)]
-/// Both `TokenClaims` and `RefreshClaims` have the same fields, but different struct to ensure no mix-up.
-pub struct TokenClaims {
-    pub identifier: String,
-    pub account_id: String,
-    pub exp: u64,
+pub enum KeyKind {
+    AUTHENTICATION,
+    REFRESH,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-/// Both `TokenClaims` and `RefreshClaims` have the same fields, but different struct to ensure no mix-up.
-pub struct RefreshClaims {
+pub struct KeyClaims {
     pub identifier: String,
     pub account_id: String,
+    pub kind: KeyKind,
     pub exp: u64,
 }
 
-pub struct ClaimsPair {
-    pub token: (TokenClaims, String),
-    pub refresh: (RefreshClaims, String),
+pub struct JwtPair {
+    pub token: (KeyClaims, String),
+    pub refresh: (KeyClaims, String),
     pub created_at: u64,
 }
 
@@ -62,13 +60,14 @@ impl JwtService {
     }
 
     /// Will panic if the private key is not provided.
-    pub fn generate(&self, account_id: &str) -> ClaimsPair {
+    pub fn generate(&self, account_id: &str) -> JwtPair {
         let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
         let created_at = jsonwebtoken::get_current_timestamp();
 
-        let token_claims = TokenClaims {
+        let token_claims = KeyClaims {
             identifier: identifier.clone(),
             account_id: account_id.to_owned(),
+            kind: KeyKind::AUTHENTICATION,
             exp: created_at + TOKEN_MAX_AGE.as_secs(),
         };
 
@@ -80,9 +79,10 @@ impl JwtService {
             )
             .unwrap();
 
-        let refresh_claims = RefreshClaims {
+        let refresh_claims = KeyClaims {
             identifier: identifier.clone(),
             account_id: account_id.to_owned(),
+            kind: KeyKind::REFRESH,
             exp: created_at + REFRESH_MAX_AGE.as_secs(),
         };
 
@@ -94,7 +94,7 @@ impl JwtService {
             )
             .unwrap();
 
-        ClaimsPair {
+        JwtPair {
             token: (
                 token_claims,
                 format!("{}.{}.{}", token.protected, token.payload, token.signature),
@@ -108,31 +108,32 @@ impl JwtService {
     }
 
     /// Any error happens during verification will return `None`.
-    pub fn verify_token(&self, token: &str) -> Option<TokenClaims> {
-        let data = jsonwebtoken::decode::<TokenClaims>(
+    pub fn verify(&self, token: &str, expect_kind: KeyKind) -> Option<KeyClaims> {
+        let data = jsonwebtoken::decode::<KeyClaims>(
             token,
             &self.public_key,
             &Validation::new(self.algorithm)
         );
 
-        match data {
-            Ok(data) => Some(data.claims),
-            Err(_) => None,
-        }
-    }
+        let claims = match data {
+            Ok(data) => data.claims,
+            Err(_) => {
+                return None;
+            }
+        };
 
-    /// Any error happens during verification will return `None`.
-    pub fn verify_refresh(&self, token: &str) -> Option<RefreshClaims> {
-        let data = jsonwebtoken::decode::<RefreshClaims>(
-            token,
-            &self.public_key,
-            &Validation::new(self.algorithm)
-        );
-
-        match data {
-            Ok(data) => Some(data.claims),
-            Err(_) => None,
-        }
+        return match expect_kind {
+            KeyKind::AUTHENTICATION =>
+                match claims.kind {
+                    KeyKind::AUTHENTICATION => Some(claims),
+                    KeyKind::REFRESH => None,
+                }
+            KeyKind::REFRESH =>
+                match claims.kind {
+                    KeyKind::AUTHENTICATION => None,
+                    KeyKind::REFRESH => Some(claims),
+                }
+        };
     }
 }
 

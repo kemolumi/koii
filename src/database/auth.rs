@@ -3,7 +3,7 @@ use redis::{ AsyncCommands, RedisError, aio::MultiplexedConnection };
 use serde::{ Deserialize, Serialize };
 use thiserror::Error;
 
-use crate::{ env::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE }, utils::jwt::{ RefreshClaims, TokenClaims } };
+use crate::{ env::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE }, utils::jwt::{ KeyClaims, KeyKind } };
 
 /// To invalidate a token pair, just say it's created at the first second of UNIX timestamp.
 const INVALIDATE_TIMESTAMP: u64 = 0;
@@ -57,7 +57,7 @@ impl AuthOperations {
     /// Add token to cache and database.
     pub async fn issue(
         &mut self,
-        claims: TokenClaims,
+        claims: KeyClaims,
         created_at: u64
     ) -> Result<bool, AuthOperationError> {
         let cache_key = format!("account:{}:token:{}", &claims.account_id, &claims.identifier);
@@ -100,7 +100,12 @@ impl AuthOperations {
     /// This method assumes that the `TokenClaims` provided is valid and verified by `jsonwebtoken`.
     ///
     /// **DON'T USE THIS METHOD ON AN UNVERIFIED `TokenClaims`.**
-    pub async fn check_token(&mut self, claims: &TokenClaims) -> Result<bool, AuthOperationError> {
+    pub async fn check_token(&mut self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
+        let max_age = match claims.kind {
+            KeyKind::AUTHENTICATION => TOKEN_MAX_AGE.as_secs(),
+            KeyKind::REFRESH => REFRESH_MAX_AGE.as_secs(),
+        };
+
         let created_at = self.cache.get::<String, Option<u64>>(
             format!("account:{}:token:{}", claims.account_id, claims.identifier)
         ).await?;
@@ -108,35 +113,12 @@ impl AuthOperations {
         match created_at {
             None => {} // No timestamp found, cache miss.
             Some(created_at) => {
-                return Ok(claims.exp - created_at <= TOKEN_MAX_AGE.as_secs());
+                return Ok(claims.exp - created_at <= max_age);
             }
         }
 
         let created_at = self.refetch(&claims.account_id, &claims.identifier).await?;
-        Ok(claims.exp - created_at <= TOKEN_MAX_AGE.as_secs())
-    }
-
-    /// This method assumes that the `RefreshClaims` provided is valid and verified by `jsonwebtoken`.
-    ///
-    /// **DON'T USE THIS METHOD ON AN UNVERIFIED `RefreshClaims`.**
-    pub async fn check_refresh(
-        &mut self,
-        claims: &RefreshClaims
-    ) -> Result<bool, AuthOperationError> {
-        let created_at = self.cache.get::<String, Option<u64>>(
-            format!("account:{}:token:{}", claims.account_id, claims.identifier)
-        ).await?;
-
-        match created_at {
-            None => {} // No timestamp found, cache miss.
-            Some(created_at) => {
-                return Ok(claims.exp - created_at <= REFRESH_MAX_AGE.as_secs());
-            }
-        }
-
-        // Refill cache, get `created_at` again!
-        let created_at = self.refetch(&claims.account_id, &claims.identifier).await?;
-        Ok(claims.exp - created_at <= REFRESH_MAX_AGE.as_secs())
+        Ok(claims.exp - created_at <= max_age)
     }
 
     /// Revoke a token, forbidding any actions from the token.

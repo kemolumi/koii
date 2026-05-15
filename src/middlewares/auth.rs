@@ -13,7 +13,7 @@ use crate::{
     AppState,
     base,
     database::auth::AuthOperationError,
-    utils::jwt::{ RefreshClaims, TokenClaims },
+    utils::jwt::{ KeyClaims, KeyKind },
 };
 
 #[derive(Clone)]
@@ -22,8 +22,8 @@ pub struct AuthorizationInfo {
     ///
     /// `[WARNING]` It is a weaker value, `active` is `true` doesn't mean `token` is available, and vice versa.
     pub active: bool,
-    pub token: Option<TokenClaims>,
-    pub refresh: Option<RefreshClaims>,
+    pub token: Option<KeyClaims>,
+    pub refresh: Option<KeyClaims>,
 }
 
 pub async fn authorize(
@@ -83,7 +83,7 @@ async fn parse_cookies(
 
     if
         let Some(payload) = jar.get("token") &&
-        let Some(claims) = state.jwt.verify_token(payload.value())
+        let Some(claims) = state.jwt.verify(payload.value(), KeyKind::AUTHENTICATION)
     {
         match state.db.auth.clone().check_token(&claims).await {
             Ok(true) => {
@@ -102,9 +102,9 @@ async fn parse_cookies(
 
     if
         let Some(payload) = jar.get("refresh") &&
-        let Some(claims) = state.jwt.verify_refresh(payload.value())
+        let Some(claims) = state.jwt.verify(payload.value(), KeyKind::REFRESH)
     {
-        match state.db.auth.clone().check_refresh(&claims).await {
+        match state.db.auth.clone().check_token(&claims).await {
             Ok(true) => {
                 refresh = Some(claims);
                 active = true;
