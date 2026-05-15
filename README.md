@@ -29,13 +29,14 @@ This rate limits apply for unauthenticated users:
 For authenticated users, there will be rate limits too, though it won't have much of an impact if you don't do anything crazy, more details later as I build this thing.
 
 ## Server structure
-- `/base`: Contains primitive stuff to be used later for cleaner code.
-- `/store`: Each module controls a collection on a MongoDB databse.
-- `/cache`: Each module controls a feature on a redis database.
+- `/base`: Contains primitive response models, cookies constructor,... to be used later for cleaner code.
+- `/database`: Each module controls a concept, usually a collection on a MongoDB database, and cache feature if used.
 - `/middlewares`: Self-explanatory.
 - `/routes`: Contains the API endpoints for Koii, obviously.
-- `/workers`: Fire up workers for blocking, long CPU-bound tasks, or tasks that needed to run separately, handles differently, or doesn't have to react to each request immediately.
-- `/utils`: Repeated code for API endpoints to use. usage will look like workers, but it will be executed on the endpoint itself.
+- `/workers`: Fire up workers for blocking, long CPU-bound tasks, or tasks that needed to run separately, strictly single-threaded, handles differently, or doesn't have to react to each request immediately.
+- `/utils`: Data processing modules for API endpoints to use. The execution will be executed on the endpoint itself, for lighter tasks that don't requires a thread.
+
+Every modules is tied together using `AppState`, see `lib.rs` to see the structure.
 
 ## Development status
 - [x] Email service & database.
