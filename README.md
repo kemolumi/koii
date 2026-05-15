@@ -17,6 +17,17 @@ By default for 3rd-party services, an ID ties to that service will be issued, an
 
 Services can request for your email, but they have to explicitly disclose the reasons in the OAuth screen. It's also expected that ALL features from that service MUST work without the need for your email.
 
+## Security
+All passwords are hashed by argon2id, with these configs:
+```
+ARGON2_MEMORY_COST=131072 # 128 mb
+ARGON2_PARALLELISM_COST=1
+ARGON2_TIME_COST=5
+ARGON2_OUTPUT_LENGTH=64 # 64 bytes
+```
+
+For emails, you have the option for the auth service to just hash your email too! But that does mean you won't get any email like warning and notices, you could check using our in-house Koii Notification though!
+
 ## Rate limits
 Rate limits is configured by tightrope, a load balancer to hold everything together.
 
@@ -38,8 +49,9 @@ Every modules is tied together using `AppState`, see `lib.rs` to see the structu
 
 ## Development status
 - [x] Email service & database.
-- [x] Basic user operations. (create, verify, login, logout, delete)
+- [x] Basic user operations. (create, verify, login, refresh token, logout, delete)
 - [ ] Advanced user operations:
+  - [ ] Destructive operations protection.
   - [ ] 2FA.
   - [ ] Forget/edit password.
   - [ ] Change email.
