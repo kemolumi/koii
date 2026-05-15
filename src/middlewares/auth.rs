@@ -9,11 +9,18 @@ use axum::{
 use cookie_rs::CookieJar;
 use reqwest::header::COOKIE;
 
-use crate::{ AppState, utils::jwt::{ TokenClaims, TokenKind } };
+use crate::{
+    AppState,
+    base,
+    database::token::TokenOperationError,
+    utils::jwt::{ TokenClaims, TokenKind },
+};
 
 #[derive(Clone)]
 pub struct AuthorizationInfo {
     /// This value satisfies when `token` or `refresh` valid.
+    ///
+    /// `[WARNING]` It is a weaker value, `active` is `true` doesn't mean `token` is available, and vice versa.
     pub active: bool,
     pub token: Option<TokenClaims>,
     pub refresh: Option<TokenClaims>,
@@ -25,45 +32,96 @@ pub async fn authorize(
     mut request: Request,
     next: Next
 ) -> impl IntoResponse {
-    if let Some(cookies) = headers.get(COOKIE) && let Ok(cookies) = cookies.to_str() {
-        request.extensions_mut().insert(parse_cookies(state, cookies).await);
-    } else {
-        request.extensions_mut().insert(AuthorizationInfo {
-            active: false,
-            token: None,
-            refresh: None,
-        });
+    let failed = AuthorizationInfo {
+        active: false,
+        token: None,
+        refresh: None,
+    };
+
+    let cookies = match headers.get(COOKIE) {
+        Some(cookies) => cookies,
+        None => {
+            request.extensions_mut().insert(failed);
+            return next.run(request).await;
+        }
+    };
+    let cookies = match cookies.to_str() {
+        Ok(cookies) => cookies,
+        Err(_) => {
+            request.extensions_mut().insert(failed);
+            return next.run(request).await;
+        }
+    };
+
+    match parse_cookies(state, cookies).await {
+        Ok(info) => {
+            request.extensions_mut().insert(info);
+        }
+        Err(_) => {
+            return base::response::internal_error::<u8>(None).into_response();
+        }
     }
 
     next.run(request).await
 }
 
-async fn parse_cookies(state: Arc<AppState>, cookies: &str) -> AuthorizationInfo {
+async fn parse_cookies(
+    state: Arc<AppState>,
+    cookies: &str
+) -> Result<AuthorizationInfo, TokenOperationError> {
     let mut token = None;
     let mut refresh = None;
     let mut active = false;
 
     let Ok(jar) = CookieJar::parse(cookies) else {
-        return AuthorizationInfo {
+        return Ok(AuthorizationInfo {
             active: false,
             token: None,
             refresh: None,
-        };
+        });
     };
 
-    if let Some(payload) = jar.get("token") {
-        token = state.jwt.verify(payload.value(), TokenKind::AUTHENTICATION);
-        active = token.is_some();
+    if
+        let Some(payload) = jar.get("token") &&
+        let Some(claims) = state.jwt.verify(payload.value(), TokenKind::AUTHENTICATION)
+    {
+        match state.db.token.clone().authorize(&claims).await {
+            Ok(true) => {
+                token = Some(claims);
+                active = true;
+            }
+            Ok(false) => {} // The token is revoked, don't add anything.
+            Err(error) => {
+                tracing::error!(
+                    "Failed to query database for token `{}`: {error}",
+                    payload.value()
+                );
+            }
+        }
     }
 
-    if let Some(payload) = jar.get("refresh") {
-        refresh = state.jwt.verify(payload.value(), TokenKind::REFRESH);
-        active = refresh.is_some();
+    if
+        let Some(payload) = jar.get("refresh") &&
+        let Some(claims) = state.jwt.verify(payload.value(), TokenKind::REFRESH)
+    {
+        match state.db.token.clone().authorize(&claims).await {
+            Ok(true) => {
+                refresh = Some(claims);
+                active = true;
+            }
+            Ok(false) => {} // The refresh is revoked, don't add anything.
+            Err(error) => {
+                tracing::error!(
+                    "Failed to query database for refresh `{}`: {error}",
+                    payload.value()
+                );
+            }
+        }
     }
 
-    AuthorizationInfo {
+    Ok(AuthorizationInfo {
         active,
         token,
         refresh,
-    }
+    })
 }
