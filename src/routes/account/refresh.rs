@@ -16,9 +16,9 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
-    let (token, refresh) = state.app.jwt.generate_pair(&revoking_refresh.account_id);
+    let pair = state.app.jwt.generate(&revoking_refresh.account_id);
 
-    match state.app.db.token.clone().issue(refresh.0).await {
+    match state.app.db.auth.clone().issue(pair.token.0, pair.created_at).await {
         Ok(true) => {} // New token pushed into databse, passing down.
         Ok(false) => {
             tracing::error!(
@@ -36,7 +36,11 @@ pub async fn handler(
         }
     }
 
-    match state.app.db.token.clone().revoke(&revoking_refresh).await {
+    match
+        state.app.db.auth
+            .clone()
+            .revoke(&revoking_refresh.account_id, &revoking_refresh.identifier).await
+    {
         Ok(true) => {} // Token revoked, passing down.
         Ok(false) => {
             return base::response::error(
@@ -50,10 +54,10 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", token.1, "/", *TOKEN_MAX_AGE);
+    let token_cookie = cookies::construct("token", pair.token.1, "/", *TOKEN_MAX_AGE);
     let refresh_cookie = cookies::construct(
         "refresh",
-        refresh.1,
+        pair.refresh.1,
         "/account/refresh",
         *REFRESH_MAX_AGE
     );

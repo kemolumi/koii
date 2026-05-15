@@ -13,17 +13,25 @@ use crate::env::{
 };
 
 #[derive(Clone, Serialize, Deserialize)]
-pub enum TokenKind {
-    AUTHENTICATION,
-    REFRESH,
+/// Both `TokenClaims` and `RefreshClaims` have the same fields, but different struct to ensure no mix-up.
+pub struct TokenClaims {
+    pub identifier: String,
+    pub account_id: String,
+    pub exp: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct TokenClaims {
+/// Both `TokenClaims` and `RefreshClaims` have the same fields, but different struct to ensure no mix-up.
+pub struct RefreshClaims {
     pub identifier: String,
-    pub kind: TokenKind,
     pub account_id: String,
     pub exp: u64,
+}
+
+pub struct ClaimsPair {
+    pub token: (TokenClaims, String),
+    pub refresh: (RefreshClaims, String),
+    pub created_at: u64,
 }
 
 pub struct JwtService {
@@ -54,18 +62,12 @@ impl JwtService {
     }
 
     /// Will panic if the private key is not provided.
-    ///
-    /// Returns a pair of key, one is the auth token, one is refresh token.
-    pub fn generate_pair(
-        &self,
-        account_id: &str
-    ) -> ((TokenClaims, String), (TokenClaims, String)) {
+    pub fn generate(&self, account_id: &str) -> ClaimsPair {
         let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
         let created_at = jsonwebtoken::get_current_timestamp();
 
         let token_claims = TokenClaims {
             identifier: identifier.clone(),
-            kind: TokenKind::AUTHENTICATION,
             account_id: account_id.to_owned(),
             exp: created_at + TOKEN_MAX_AGE.as_secs(),
         };
@@ -78,9 +80,8 @@ impl JwtService {
             )
             .unwrap();
 
-        let refresh_claims = TokenClaims {
+        let refresh_claims = RefreshClaims {
             identifier: identifier.clone(),
-            kind: TokenKind::REFRESH,
             account_id: account_id.to_owned(),
             exp: created_at + REFRESH_MAX_AGE.as_secs(),
         };
@@ -93,42 +94,45 @@ impl JwtService {
             )
             .unwrap();
 
-        (
-            (token_claims, format!("{}.{}.{}", token.protected, token.payload, token.signature)),
-            (
+        ClaimsPair {
+            token: (
+                token_claims,
+                format!("{}.{}.{}", token.protected, token.payload, token.signature),
+            ),
+            refresh: (
                 refresh_claims,
                 format!("{}.{}.{}", refresh.protected, refresh.payload, refresh.signature),
             ),
-        )
+            created_at,
+        }
     }
 
     /// Any error happens during verification will return `None`.
-    pub fn verify(&self, token: &str, expect_token_kind: TokenKind) -> Option<TokenClaims> {
+    pub fn verify_token(&self, token: &str) -> Option<TokenClaims> {
         let data = jsonwebtoken::decode::<TokenClaims>(
             token,
             &self.public_key,
             &Validation::new(self.algorithm)
         );
 
-        let claims = match data {
-            Ok(data) => data.claims,
-            Err(_) => {
-                return None;
-            }
-        };
+        match data {
+            Ok(data) => Some(data.claims),
+            Err(_) => None,
+        }
+    }
 
-        return match expect_token_kind {
-            TokenKind::AUTHENTICATION =>
-                match claims.kind {
-                    TokenKind::AUTHENTICATION => Some(claims),
-                    TokenKind::REFRESH => None,
-                }
-            TokenKind::REFRESH =>
-                match claims.kind {
-                    TokenKind::AUTHENTICATION => None,
-                    TokenKind::REFRESH => Some(claims),
-                }
-        };
+    /// Any error happens during verification will return `None`.
+    pub fn verify_refresh(&self, token: &str) -> Option<RefreshClaims> {
+        let data = jsonwebtoken::decode::<RefreshClaims>(
+            token,
+            &self.public_key,
+            &Validation::new(self.algorithm)
+        );
+
+        match data {
+            Ok(data) => Some(data.claims),
+            Err(_) => None,
+        }
     }
 }
 

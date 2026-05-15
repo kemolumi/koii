@@ -170,9 +170,9 @@ pub async fn handler(
         }
     }
 
-    let (token, refresh) = state.app.jwt.generate_pair(&account.account_id);
+    let pair = state.app.jwt.generate(&account.account_id);
 
-    match state.app.db.token.clone().issue(refresh.0).await {
+    match state.app.db.auth.clone().issue(pair.token.0, pair.created_at).await {
         Ok(true) => {} // Token stored to db, passing down.
         Ok(false) => {
             tracing::error!("Gem alert {}.", &account.account_id);
@@ -188,10 +188,10 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", token.1, "/", *TOKEN_MAX_AGE);
+    let token_cookie = cookies::construct("token", pair.token.1, "/", *TOKEN_MAX_AGE);
     let refresh_cookie = cookies::construct(
         "refresh",
-        refresh.1,
+        pair.refresh.1,
         "/account/refresh_token",
         *REFRESH_MAX_AGE
     );

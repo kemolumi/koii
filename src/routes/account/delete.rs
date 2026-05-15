@@ -29,7 +29,7 @@ pub async fn handler(
     }
 
     // Account now gone, delete tokens in cache.
-    match state.app.db.token.clone().revoke_all(&token.account_id).await {
+    match state.app.db.auth.clone().revoke_all(&token.account_id).await {
         Ok(_) => {} // Revoked, passing down.
         Err(error) => {
             tracing::error!("Unable to revoke all tokens for {}: {}", &token.account_id, error);

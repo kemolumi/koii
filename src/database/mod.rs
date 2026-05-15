@@ -2,7 +2,7 @@ use crate::{
     database::{
         account::AccountOperations,
         sudo::SudoOperations,
-        token::TokenOperations,
+        auth::AuthOperations,
         totp::TotpOperations,
         totp_code::TotpCodeOperations,
     },
@@ -12,7 +12,7 @@ use crate::{
 pub mod account;
 pub mod totp;
 pub mod totp_code;
-pub mod token;
+pub mod auth;
 pub mod sudo;
 pub mod passkey;
 
@@ -20,7 +20,7 @@ pub struct Database {
     pub account: AccountOperations,
     pub totp: TotpOperations,
     pub totp_code: TotpCodeOperations,
-    pub token: TokenOperations,
+    pub auth: AuthOperations,
     pub sudo: SudoOperations,
 }
 
@@ -40,14 +40,14 @@ impl Database {
         let account_collection = mongo_database.collection("account");
         let totp_collection = mongo_database.collection("totp");
         let totp_code_collection = mongo_database.collection("totp_code");
-        let token_collection = mongo_database.collection("token");
+        let auth_collection = mongo_database.collection("auth");
         let sudo_collection = mongo_database.collection("sudo");
 
         Ok(Database {
             account: AccountOperations::new(account_collection).await.unwrap(),
             totp: TotpOperations::new(totp_collection).await.unwrap(),
             totp_code: TotpCodeOperations::new(totp_code_collection).await.unwrap(),
-            token: TokenOperations::new(token_collection, redis_client.clone()).await.unwrap(),
+            auth: AuthOperations::new(auth_collection, redis_client.clone()).await.unwrap(),
             sudo: SudoOperations::new(sudo_collection).await.unwrap(),
         })
     }

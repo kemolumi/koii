@@ -12,8 +12,8 @@ use reqwest::header::COOKIE;
 use crate::{
     AppState,
     base,
-    database::token::TokenOperationError,
-    utils::jwt::{ TokenClaims, TokenKind },
+    database::auth::AuthOperationError,
+    utils::jwt::{ RefreshClaims, TokenClaims },
 };
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ pub struct AuthorizationInfo {
     /// `[WARNING]` It is a weaker value, `active` is `true` doesn't mean `token` is available, and vice versa.
     pub active: bool,
     pub token: Option<TokenClaims>,
-    pub refresh: Option<TokenClaims>,
+    pub refresh: Option<RefreshClaims>,
 }
 
 pub async fn authorize(
@@ -68,7 +68,7 @@ pub async fn authorize(
 async fn parse_cookies(
     state: Arc<AppState>,
     cookies: &str
-) -> Result<AuthorizationInfo, TokenOperationError> {
+) -> Result<AuthorizationInfo, AuthOperationError> {
     let mut token = None;
     let mut refresh = None;
     let mut active = false;
@@ -83,9 +83,9 @@ async fn parse_cookies(
 
     if
         let Some(payload) = jar.get("token") &&
-        let Some(claims) = state.jwt.verify(payload.value(), TokenKind::AUTHENTICATION)
+        let Some(claims) = state.jwt.verify_token(payload.value())
     {
-        match state.db.token.clone().authorize(&claims).await {
+        match state.db.auth.clone().check_token(&claims).await {
             Ok(true) => {
                 token = Some(claims);
                 active = true;
@@ -102,9 +102,9 @@ async fn parse_cookies(
 
     if
         let Some(payload) = jar.get("refresh") &&
-        let Some(claims) = state.jwt.verify(payload.value(), TokenKind::REFRESH)
+        let Some(claims) = state.jwt.verify_refresh(payload.value())
     {
-        match state.db.token.clone().authorize(&claims).await {
+        match state.db.auth.clone().check_refresh(&claims).await {
             Ok(true) => {
                 refresh = Some(claims);
                 active = true;
