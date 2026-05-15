@@ -129,13 +129,13 @@ impl AuthOperations {
         account_id: &str,
         identifier: &str
     ) -> Result<bool, AuthOperationError> {
-        self.cache.set::<String, bool, String>(
-            format!("account:{}:token:{}", account_id, identifier),
-            false
-        ).await?;
-
         let db_result = self.collection.delete_one(
             bson::doc! { "account_id": account_id, "identifier": identifier }
+        ).await?;
+
+        self.cache.set::<String, u64, String>(
+            format!("account:{}:token:{}", account_id, identifier),
+            INVALIDATE_TIMESTAMP
         ).await?;
 
         Ok(db_result.deleted_count == 1)
