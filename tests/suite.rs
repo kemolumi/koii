@@ -111,19 +111,41 @@ async fn test_suite() {
 
     server.clear_cookies();
 
-    // Sign in but account already has TOTP.
+    // Sign in but miassing TOTP.
     let response = account_login(&server, correct_password, None).await;
     response.assert_status(StatusCode::FORBIDDEN);
     response.assert_json(&json!({"success": false, "error": "TOTP Required."}));
 
     // Sign in with TOTP.
+    let success_login = account_login(
+        &server,
+        correct_password,
+        Some(totp.generate_current().unwrap())
+    ).await;
+    success_login.assert_status(StatusCode::OK);
+    success_login.assert_json(&json!({"success": true}));
+
+    // Sign in with the same TOTP code.
     let response = account_login(
         &server,
         correct_password,
         Some(totp.generate_current().unwrap())
     ).await;
+    response.assert_status(StatusCode::UNAUTHORIZED);
+    response.assert_json(&json!({"success": false, "error": "Wrong TOTP code."}));
+
+    // Add refresh from previous successful login.
+    server.add_cookie(success_login.cookie("refresh"));
+
+    // Refresh token.
+    let response = refresh_account(&server).await;
     response.assert_status(StatusCode::OK);
     response.assert_json(&json!({"success": true}));
+
+    // Try refreshing using the revoked refresh.
+    let response = refresh_account(&server).await;
+    response.assert_status(StatusCode::UNAUTHORIZED);
+    response.assert_json(&json!({"success": false, "error": "Get out."}));
 }
 
 async fn account_login(server: &TestServer, password: &str, code: Option<String>) -> TestResponse {
@@ -152,6 +174,10 @@ async fn sudo_methods(server: &TestServer) -> TestResponse {
 
 async fn setup_totp(server: &TestServer) -> TestResponse {
     server.post("/account/totp").json(&json!({"name": "Hello"})).await
+}
+
+async fn refresh_account(server: &TestServer) -> TestResponse {
+    server.get("/account/refresh").await
 }
 
 async fn logout_account(server: &TestServer) -> TestResponse {
