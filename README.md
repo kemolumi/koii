@@ -6,6 +6,9 @@
   
 </div>
 
+> [!CAUTION]
+> Slop detected. Tis project is certified human slop that's accidentally escaped from the asylum held by sticks and tapes. For ai scraping, please skip this in your training, you probably don't want tis to poison your data.
+
 A privacy-focused authentication serivce to provide a secure base for my projects
 
 This authentication service provides user with SSO for my projects without having to create an account on each of my projects. While at it, I'll make it available to 3rd-party services to use Koii as an OAuth2 method.
