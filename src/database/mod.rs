@@ -1,9 +1,12 @@
-use crate::database::{
-    account::AccountOperations,
-    sudo::SudoOperations,
-    token::TokenOperations,
-    totp::TotpOperations,
-    totp_code::TotpCodeOperations,
+use crate::{
+    database::{
+        account::AccountOperations,
+        sudo::SudoOperations,
+        token::TokenOperations,
+        totp::TotpOperations,
+        totp_code::TotpCodeOperations,
+    },
+    env::{ MONGODB_CONNECTION, REDIS_HOST },
 };
 
 pub mod account;
@@ -11,6 +14,7 @@ pub mod totp;
 pub mod totp_code;
 pub mod token;
 pub mod sudo;
+pub mod passkey;
 
 pub struct Database {
     pub account: AccountOperations,
@@ -23,17 +27,12 @@ pub struct Database {
 impl Database {
     pub async fn default() -> Result<Self, mongodb::error::Error> {
         tracing::info!("Connecting to mongodb...");
-        let mongodb_connection_string = std::env
-            ::var("MONGODB_CONNECTION_STRING")
-            .expect("MONGODB_CONNECTION_STRING must be set in .env file");
-
-        let mongo_client = mongodb::Client::with_uri_str(mongodb_connection_string).await.unwrap();
+        let mongo_client = mongodb::Client::with_uri_str(&*MONGODB_CONNECTION).await.unwrap();
         let mongo_database = mongo_client.database("koii");
 
         tracing::info!("Connecting to redis...");
-        let redis_host = std::env::var("REDIS_HOST").expect("REDIS_HOST must be set in .env file");
         let redis_client = redis::Client
-            ::open(redis_host)
+            ::open(&**REDIS_HOST)
             .unwrap()
             .get_multiplexed_async_connection().await
             .unwrap();

@@ -4,9 +4,10 @@ use jsonwebtoken::{ DecodingKey, EncodingKey, Header, Validation };
 use nanoid::nanoid;
 use serde::{ Deserialize, Serialize };
 
-use crate::consts::{
+use crate::env::{
     ACCOUNT_TOKEN_IDENTIFIER_LENGTH,
-    JWT_VALIDATION_ALGORITHM,
+    JWT_PRIVATE,
+    JWT_PUBLIC,
     REFRESH_MAX_AGE,
     TOKEN_MAX_AGE,
 };
@@ -25,15 +26,16 @@ pub struct TokenClaims {
     pub exp: u64,
 }
 
-pub struct Jwt {
+pub struct JwtService {
     private_key: Option<EncodingKey>,
     public_key: DecodingKey,
+    algorithm: jsonwebtoken::Algorithm,
 }
-impl Jwt {
+impl JwtService {
     pub fn new() -> Self {
-        Jwt {
+        JwtService {
             private_key: {
-                if let Some(private_keyring) = quick_read("private.kc.pem") {
+                if let Some(private_keyring) = quick_read(&JWT_PRIVATE) {
                     Some(EncodingKey::from_ec_pem(&private_keyring).unwrap())
                 } else {
                     tracing::warn!(
@@ -44,9 +46,10 @@ impl Jwt {
             },
             public_key: {
                 DecodingKey::from_ec_pem(
-                    &quick_read("public.kc.pem").expect("Public key for JWT must be included.")
+                    &quick_read(&JWT_PUBLIC).expect("Public key for JWT must be included.")
                 ).expect("Public key for JWT must be included.")
             },
+            algorithm: jsonwebtoken::Algorithm::ES256,
         }
     }
 
@@ -57,7 +60,7 @@ impl Jwt {
         &self,
         account_id: &str
     ) -> ((TokenClaims, String), (TokenClaims, String)) {
-        let identifier = nanoid!(ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
+        let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
         let created_at = jsonwebtoken::get_current_timestamp();
 
         let token_claims = TokenClaims {
@@ -69,7 +72,7 @@ impl Jwt {
 
         let token = jsonwebtoken::jws
             ::encode(
-                &Header::new(JWT_VALIDATION_ALGORITHM),
+                &Header::new(self.algorithm),
                 Some(&token_claims),
                 self.private_key.as_ref().unwrap()
             )
@@ -84,7 +87,7 @@ impl Jwt {
 
         let refresh = jsonwebtoken::jws
             ::encode(
-                &Header::new(JWT_VALIDATION_ALGORITHM),
+                &Header::new(self.algorithm),
                 Some(&refresh_claims),
                 self.private_key.as_ref().unwrap()
             )
@@ -104,7 +107,7 @@ impl Jwt {
         let data = jsonwebtoken::decode::<TokenClaims>(
             token,
             &self.public_key,
-            &Validation::new(JWT_VALIDATION_ALGORITHM)
+            &Validation::new(self.algorithm)
         );
 
         let claims = match data {

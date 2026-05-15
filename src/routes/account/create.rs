@@ -5,7 +5,7 @@ use validator::Validate;
 
 use crate::{
     base::{ self, response::ResponseModel },
-    consts::{ ACCOUNT_ID_LENGTH, EMAIL_VERIFY_CODE_LENGTH },
+    env::{ ACCOUNT_ID_LENGTH, EMAIL_VERIFY_CODE_LENGTH },
     database::account::AccountDocument,
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
@@ -76,9 +76,9 @@ pub async fn handler(
         }
     }
 
-    let account_id = nanoid!(ACCOUNT_ID_LENGTH);
+    let account_id = nanoid!(*ACCOUNT_ID_LENGTH);
     let verify_code = if !state.app.debug {
-        nanoid!(EMAIL_VERIFY_CODE_LENGTH)
+        nanoid!(*EMAIL_VERIFY_CODE_LENGTH)
     } else {
         "debug".to_string()
     };

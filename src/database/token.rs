@@ -9,7 +9,7 @@ use redis::{ AsyncCommands, RedisError, aio::MultiplexedConnection };
 use serde::{ Deserialize, Serialize };
 use thiserror::Error;
 
-use crate::{ consts::REFRESH_MAX_AGE, utils::jwt::{ TokenClaims, TokenKind } };
+use crate::{ env::REFRESH_MAX_AGE, utils::jwt::{ TokenClaims, TokenKind } };
 
 #[derive(Deserialize, Serialize)]
 pub struct TokenDocument {
@@ -50,7 +50,7 @@ impl TokenOperations {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "created_at": 1 })
-                .options(IndexOptions::builder().expire_after(REFRESH_MAX_AGE).build())
+                .options(IndexOptions::builder().expire_after(*REFRESH_MAX_AGE).build())
                 .build()
         ).await?;
 

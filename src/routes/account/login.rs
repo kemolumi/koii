@@ -11,8 +11,8 @@ use validator::Validate;
 
 use crate::{
     base::{ self, cookies, response::ResponseModel },
-    consts::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     database::totp_code::TotpCodeDocument,
+    env::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
     workers::verify_pass::VerifyPassRequest,
@@ -188,12 +188,12 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", token.1, "/", TOKEN_MAX_AGE);
+    let token_cookie = cookies::construct("token", token.1, "/", *TOKEN_MAX_AGE);
     let refresh_cookie = cookies::construct(
         "refresh",
         refresh.1,
         "/account/refresh_token",
-        REFRESH_MAX_AGE
+        *REFRESH_MAX_AGE
     );
 
     base::response::success(

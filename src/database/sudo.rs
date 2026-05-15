@@ -7,7 +7,7 @@ use mongodb::{
 };
 use serde::{ Deserialize, Serialize };
 
-use crate::consts::SUDO_MAX_AGE;
+use crate::env::SUDO_MAX_AGE;
 
 #[derive(Serialize, Deserialize)]
 pub struct SudoDocument {
@@ -32,7 +32,7 @@ impl SudoOperations {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "created_at": 1 })
-                .options(IndexOptions::builder().expire_after(SUDO_MAX_AGE).build())
+                .options(IndexOptions::builder().expire_after(*SUDO_MAX_AGE).build())
                 .build()
         ).await?;
 

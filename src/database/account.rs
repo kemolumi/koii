@@ -1,13 +1,7 @@
-use mongodb::{
-    Collection,
-    IndexModel,
-    bson,
-    error::WriteFailure,
-    options::IndexOptions,
-};
+use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
 
-use crate::consts::{ EMAIL_VERIFY_EXPIRE, ACCOUNT_DELETE_WINDOW };
+use crate::env::{ EMAIL_VERIFY_EXPIRE, ACCOUNT_DELETE_WINDOW };
 
 #[derive(Deserialize, Serialize)]
 pub struct AccountDocument {
@@ -66,14 +60,14 @@ impl AccountOperations {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "verify_requested": 1 })
-                .options(IndexOptions::builder().expire_after(EMAIL_VERIFY_EXPIRE).build())
+                .options(IndexOptions::builder().expire_after(*EMAIL_VERIFY_EXPIRE).build())
                 .build()
         ).await?;
 
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "deleted": 1 })
-                .options(IndexOptions::builder().expire_after(ACCOUNT_DELETE_WINDOW).build())
+                .options(IndexOptions::builder().expire_after(*ACCOUNT_DELETE_WINDOW).build())
                 .build()
         ).await?;
 

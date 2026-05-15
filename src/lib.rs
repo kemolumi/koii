@@ -1,4 +1,4 @@
-use std::{ env::args, net::SocketAddr, sync::Arc, time::Instant };
+use std::{ env::args, sync::Arc, time::Instant };
 
 use axum::{
     Router,
@@ -10,9 +10,10 @@ use axum_server::tls_rustls::RustlsConfig;
 use tower_http::cors::CorsLayer;
 use crate::{
     database::Database,
+    env::{ HOST, ORIGIN_DOMAIN, SSL_CERT, SSL_KEY },
     middlewares::track,
     routes::ily,
-    utils::{ jwt::Jwt, turnstile::Turnstile },
+    utils::{ jwt::JwtService, passkey::PasskeyService, turnstile::Turnstile },
     workers::{ WorkerSpec, Workers, WorkersAllocate },
 };
 
@@ -22,12 +23,13 @@ mod routes;
 pub mod middlewares;
 pub mod base;
 pub mod utils;
-pub mod consts;
+pub mod env;
 
 pub struct AppState {
     pub worker: Workers,
     pub db: Database,
-    pub jwt: Jwt,
+    pub jwt: JwtService,
+    pub passkey: PasskeyService,
     pub turnstile: Turnstile,
     pub debug: bool,
 }
@@ -36,19 +38,12 @@ pub struct AppState {
 pub fn init() {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt().init();
-
     rustls::crypto::ring::default_provider().install_default().unwrap();
 }
 
 /// The core setup, this is what `main.rs` should call.
 pub async fn core() {
-    let host = std::env
-        ::var("HOST")
-        .expect("HOST must be set in .env file")
-        .parse::<SocketAddr>()
-        .unwrap();
-
-    tracing::info!("Hello, world (world here is {})! :3", host);
+    tracing::info!("Hello, world (world here is {})! :3", *HOST);
 
     let mode: Vec<String> = args().collect();
     if mode.len() != 2 {
@@ -60,11 +55,11 @@ pub async fn core() {
         "secure" => {
             tracing::info!("Serving in secure context...");
             let tls_config = RustlsConfig::from_pem_file(
-                "cf-ocert.pem",
-                "cf-okey.pem"
+                SSL_CERT.clone(),
+                SSL_KEY.clone()
             ).await.unwrap();
             axum_server
-                ::bind_rustls(host, tls_config)
+                ::bind_rustls(*HOST, tls_config)
                 .serve(app(false).await.into_make_service()).await
                 .unwrap();
         }
@@ -76,7 +71,7 @@ pub async fn core() {
             tracing::info!(
                 "Disabled security features:\n- mSSL to communicate with Cloudflare.\n- Turnstile check."
             );
-            axum_server::bind(host).serve(app(true).await.into_make_service()).await.unwrap();
+            axum_server::bind(*HOST).serve(app(true).await.into_make_service()).await.unwrap();
         }
         _ => tracing::error!("No context chosen, shutting down... [secure/insecure]"),
     }
@@ -103,7 +98,8 @@ pub async fn app(debug: bool) -> Router {
             },
         }),
         db: Database::default().await.unwrap(),
-        jwt: utils::jwt::Jwt::new(),
+        jwt: JwtService::new(),
+        passkey: PasskeyService::new(),
         turnstile: Turnstile::default(),
         debug,
     });
@@ -112,8 +108,9 @@ pub async fn app(debug: bool) -> Router {
         .allow_origin(
             tower_http::cors::AllowOrigin::predicate(|origin: &HeaderValue, _| {
                 let origin = origin.as_bytes();
-                origin == b"https://koii.space" ||
-                    (origin.starts_with(b"https://") && origin.ends_with(b".koii.space"))
+                origin == ORIGIN_DOMAIN.as_str().as_bytes() ||
+                    (origin.starts_with(b"https://") &&
+                        origin.ends_with(ORIGIN_DOMAIN.domain().unwrap().as_bytes()))
             })
         )
         .allow_methods(vec![Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])

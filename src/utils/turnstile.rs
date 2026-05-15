@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::env::TURNSTILE_SECRET;
+
 #[derive(Deserialize)]
 pub struct TurnstileResult {
     pub success: bool,
@@ -16,18 +18,12 @@ pub struct TurnstileResult {
 }
 
 pub struct Turnstile {
-    secret: String,
     http_client: reqwest::Client,
     retries: usize,
 }
 impl Turnstile {
     pub fn default() -> Self {
-        let turnstile_secret = std::env
-            ::var("TURNSTILE_SECRET")
-            .expect("TURNSTILE_SECRET must be set in .env file");
-
         Turnstile {
-            secret: turnstile_secret,
             http_client: reqwest::Client
                 ::builder()
                 .timeout(Duration::from_secs(5))
@@ -51,7 +47,7 @@ impl Turnstile {
             .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
             .form(
                 &[
-                    ("secret", &self.secret),
+                    ("secret", &*TURNSTILE_SECRET),
                     ("response", &clientstile),
                 ]
             );

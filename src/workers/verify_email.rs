@@ -2,6 +2,8 @@ use std::{ collections::HashMap, thread, time::Duration };
 use resend_rs::{ Resend, types::{ CreateEmailBaseOptions, EmailTemplate } };
 use tokio::sync::oneshot;
 
+use crate::env::RESEND_TOKEN;
+
 pub struct VerifyEmailRequest {
     pub email: String,
     pub verify_code: String,
@@ -24,10 +26,7 @@ fn worker(rx: kanal::Receiver<(VerifyEmailRequest, Option<oneshot::Sender<Option
     // DO NOT MOVE THIS UP TO THE LAUNCHER FUNCTION.
     // Resend uses `reqwest` under the hood.
     // And if it's defined as blocking, it can't be initialized inside of tokio context.
-    let resend_token = std::env
-        ::var("RESEND_TOKEN")
-        .expect("RESEND_TOKEN must be set in .env file");
-    let resend = Resend::new(&resend_token);
+    let resend = Resend::new(&RESEND_TOKEN);
 
     let mut requests = Vec::with_capacity(100);
 
