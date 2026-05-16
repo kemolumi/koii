@@ -1,17 +1,15 @@
 use crate::{
     database::{
         account::AccountOperations,
-        sudo::SudoOperations,
         auth::AuthOperations,
-        totp::TotpOperations,
-        totp_code::TotpCodeOperations,
+        sudo::SudoOperations,
+        totp::{ TotpOperations, totp::TotpStoreOperations, code::TotpUsedCodeOperations },
     },
     env::{ MONGODB_CONNECTION, REDIS_HOST },
 };
 
 pub mod account;
 pub mod totp;
-pub mod totp_code;
 pub mod auth;
 pub mod sudo;
 pub mod passkey;
@@ -19,7 +17,6 @@ pub mod passkey;
 pub struct Database {
     pub account: AccountOperations,
     pub totp: TotpOperations,
-    pub totp_code: TotpCodeOperations,
     pub auth: AuthOperations,
     pub sudo: SudoOperations,
 }
@@ -45,8 +42,10 @@ impl Database {
 
         Ok(Database {
             account: AccountOperations::new(account_collection).await.unwrap(),
-            totp: TotpOperations::new(totp_collection).await.unwrap(),
-            totp_code: TotpCodeOperations::new(totp_code_collection).await.unwrap(),
+            totp: TotpOperations {
+                store: TotpStoreOperations::new(totp_collection).await.unwrap(),
+                code: TotpUsedCodeOperations::new(totp_code_collection).await.unwrap(),
+            },
             auth: AuthOperations::new(auth_collection, redis_client.clone()).await.unwrap(),
             sudo: SudoOperations::new(sudo_collection).await.unwrap(),
         })

@@ -5,7 +5,7 @@ use validator::{ Validate, ValidationErrorsKind };
 
 use crate::{
     base::{ self, response::ResponseModel },
-    database::totp::TotpDocument,
+    database::totp::totp::TotpStoreDocument,
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
     utils::totp::Totp,
@@ -70,12 +70,12 @@ pub async fn handler(
         }
     };
 
-    let document = TotpDocument {
+    let document = TotpStoreDocument {
         totp,
         account_id: token.account_id,
     };
 
-    match state.app.db.totp.add(&document).await {
+    match state.app.db.totp.store.add(&document).await {
         Ok(true) => {} // TOTP added, passing down.
         Ok(false) => {
             return base::response::error(

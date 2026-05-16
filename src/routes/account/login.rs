@@ -11,7 +11,7 @@ use validator::Validate;
 
 use crate::{
     base::{ self, cookies, response::ResponseModel },
-    database::totp_code::TotpCodeDocument,
+    database::totp::code::TotpUsedCodeDocument,
     env::{ REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
@@ -122,7 +122,7 @@ pub async fn handler(
         }
     }
 
-    match state.app.db.totp.get(&account.account_id).await {
+    match state.app.db.totp.store.get(&account.account_id).await {
         Ok(None) => {} // No TOTP, passing down.
         Ok(Some(totp)) => {
             let Some(totp_code) = payload.totp_code else {
@@ -143,13 +143,13 @@ pub async fn handler(
                 }
             }
 
-            let entry = TotpCodeDocument {
+            let entry = TotpUsedCodeDocument {
                 account_id: account.account_id.clone(),
                 code: totp_code,
                 created_at: bson::DateTime::now(),
             };
 
-            match state.app.db.totp_code.use_code(&entry).await {
+            match state.app.db.totp.code.use_code(&entry).await {
                 Ok(true) => {} // New TOTP code used, passing down.
                 Ok(false) => {
                     return base::response::error(
