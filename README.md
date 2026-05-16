@@ -67,6 +67,8 @@ Every modules is tied together using `AppState`, see `lib.rs` to see the structu
 - [ ] Advanced user operations:
   - [ ] Destructive operations protection.
   - [ ] 2FA.
+    - [x] TOTP.
+    - [ ] Passkey.
   - [ ] Forget/edit password.
   - [ ] Change email.
 - [ ] OAuth2.

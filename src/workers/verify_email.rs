@@ -2,7 +2,7 @@ use std::{ collections::HashMap, thread, time::Duration };
 use resend_rs::{ Resend, types::{ CreateEmailBaseOptions, EmailTemplate } };
 use tokio::sync::oneshot;
 
-use crate::env::RESEND_TOKEN;
+use crate::env::{ ORIGIN_DOMAIN, RESEND_TOKEN };
 
 pub struct VerifyEmailRequest {
     pub email: String,
@@ -57,11 +57,17 @@ fn create_verify_base(request: &VerifyEmailRequest) -> CreateEmailBaseOptions {
     let mut variables = HashMap::new();
     variables.insert(
         "VERIFY_LINK".to_string(),
-        serde_json::Value::String(format!("https://koii.space/verify?code={}", request.verify_code))
+        serde_json::Value::String(
+            format!(
+                "https://{}/verify?code={}",
+                ORIGIN_DOMAIN.domain().unwrap(),
+                request.verify_code
+            )
+        )
     );
 
     CreateEmailBaseOptions::new(
-        "Koii Auth <auth@koii.space>",
+        format!("Koii Auth <auth@{}>", ORIGIN_DOMAIN.domain().unwrap()),
         [&request.email],
         "Koii email verification"
     ).with_template(EmailTemplate::new("koii-verify").with_variables(variables))

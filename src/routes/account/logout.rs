@@ -63,7 +63,7 @@ pub async fn handler(
             AppendHeaders(
                 vec![
                     (SET_COOKIE, cookies::remove("token", "/")),
-                    (SET_COOKIE, cookies::remove("refresh", "/account/refresh_token"))
+                    (SET_COOKIE, cookies::remove("refresh", "/account/refresh"))
                 ]
             )
         )

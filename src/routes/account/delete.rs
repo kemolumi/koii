@@ -6,9 +6,7 @@ use axum::{
 };
 
 use crate::{
-    base::{ self, response::ResponseModel },
-    routes::account::AccountRoutesState,
-    middlewares::auth::AuthorizationInfo,
+    base::{ self, cookies, response::ResponseModel }, middlewares::auth::AuthorizationInfo, routes::account::AccountRoutesState
 };
 
 pub async fn handler(
@@ -41,10 +39,10 @@ pub async fn handler(
         StatusCode::OK,
         Some(
             AppendHeaders(
-                vec![(
-                    SET_COOKIE,
-                    "token=; HttpOnly; SameSite=Lax; Secure; Path=/; Domain=.koii.space; Max-Age=0".to_string(),
-                )]
+                vec![
+                    (SET_COOKIE, cookies::remove("token", "/")),
+                    (SET_COOKIE, cookies::remove("refresh", "/account/refresh"))
+                ]
             )
         )
     )
