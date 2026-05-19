@@ -1,6 +1,6 @@
-use crate::database::totp::{ totp::TotpStoreOperations, code::TotpUsedCodeOperations };
+use crate::database::totp::{ store::TotpStoreOperations, code::TotpUsedCodeOperations };
 
-pub mod totp;
+pub mod store;
 pub mod code;
 
 pub struct TotpOperations {

@@ -15,7 +15,9 @@ pub struct TotpStoreOperations {
 }
 
 impl TotpStoreOperations {
-    pub async fn new(collection: Collection<TotpStoreDocument>) -> Result<Self, mongodb::error::Error> {
+    pub async fn new(
+        collection: Collection<TotpStoreDocument>
+    ) -> Result<Self, mongodb::error::Error> {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "account_id": 1 })
@@ -46,7 +48,10 @@ impl TotpStoreOperations {
         Ok(true)
     }
 
-    pub async fn get(&self, account_id: &str) -> Result<Option<Totp>, mongodb::error::Error> {
+    pub async fn get_from_account(
+        &self,
+        account_id: &str
+    ) -> Result<Option<Totp>, mongodb::error::Error> {
         let totp_collection = self.collection.find_one(
             bson::doc! { "account_id": account_id }
         ).await?;

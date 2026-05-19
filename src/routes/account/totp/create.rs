@@ -5,7 +5,7 @@ use validator::{ Validate, ValidationErrorsKind };
 
 use crate::{
     base::{ self, response::ResponseModel },
-    database::totp::totp::TotpStoreDocument,
+    database::totp::store::TotpStoreDocument,
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
     utils::totp::Totp,

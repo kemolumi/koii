@@ -28,7 +28,7 @@ pub async fn handler(
         passkey: false,
     };
 
-    match state.app.db.totp.store.get(&token.account_id).await {
+    match state.app.db.totp.store.get_from_account(&token.account_id).await {
         Ok(None) => {}
         Ok(Some(_)) => {
             methods.totp = true;

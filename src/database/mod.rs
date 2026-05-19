@@ -3,7 +3,7 @@ use crate::{
         account::AccountOperations,
         auth::AuthOperations,
         sudo::SudoOperations,
-        totp::{ TotpOperations, totp::TotpStoreOperations, code::TotpUsedCodeOperations },
+        totp::{ TotpOperations, store::TotpStoreOperations, code::TotpUsedCodeOperations },
     },
     env::{ MONGODB_CONNECTION, REDIS_HOST },
 };

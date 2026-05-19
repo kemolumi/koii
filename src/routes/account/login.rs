@@ -122,7 +122,7 @@ pub async fn handler(
         }
     }
 
-    match state.app.db.totp.store.get(&account.account_id).await {
+    match state.app.db.totp.store.get_from_account(&account.account_id).await {
         Ok(None) => {} // No TOTP, passing down.
         Ok(Some(totp)) => {
             let Some(totp_code) = payload.totp_code else {
