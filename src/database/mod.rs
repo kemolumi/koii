@@ -12,7 +12,6 @@ pub mod account;
 pub mod totp;
 pub mod auth;
 pub mod sudo;
-pub mod passkey;
 
 pub struct Database {
     pub account: AccountOperations,
