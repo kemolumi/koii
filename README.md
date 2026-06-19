@@ -74,4 +74,5 @@ Every modules is tied together using `AppState`, see `lib.rs` to see the structu
   - [ ] Forget/edit password.
   - [ ] Change email.
 - [ ] OAuth2.
+- [ ] KNAPI. (Koii Notification API)
 - [ ] Ability to create account with: Gitlab, Github, Google, Microsoft, Apple. (so many Gs)
