@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::env::TOTP_SECRET_LENGTH;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Totp {
     pub secret: Binary,
     pub url: String,
