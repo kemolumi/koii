@@ -75,7 +75,7 @@ pub async fn handler(
         account_id: token.account_id,
     };
 
-    match state.app.db.totp.store.add(&document).await {
+    match state.app.db.totp.store.add(document.clone()).await {
         Ok(true) => {} // TOTP added, passing down.
         Ok(false) => {
             return base::response::error(
@@ -84,7 +84,8 @@ pub async fn handler(
                 None
             );
         }
-        Err(_) => {
+        Err(error) => {
+            tracing::error!("Error while creating TOTP for {}: {}", document.account_id, error);
             return base::response::internal_error(None);
         }
     }
