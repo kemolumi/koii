@@ -1,7 +1,12 @@
 use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
+use crate::env::{ ACCOUNT_DELETE_WINDOW, EMAIL_VERIFY_EXPIRE };
 
-use crate::env::{ EMAIL_VERIFY_EXPIRE, ACCOUNT_DELETE_WINDOW };
+#[derive(Deserialize, Serialize)]
+pub struct AccountMfaStatus {
+    pub totp: bool,
+    pub passkey: bool,
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct AccountDocument {
@@ -13,6 +18,8 @@ pub struct AccountDocument {
 
     /// Account's password hash using argon2id.
     pub password_hash: String,
+
+    pub mfa_status: AccountMfaStatus,
 
     /// The time when the user verified the account locking in as the creation time.
     #[serde(skip_serializing_if = "Option::is_none")]
