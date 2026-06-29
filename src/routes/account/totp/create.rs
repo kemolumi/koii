@@ -28,7 +28,7 @@ pub async fn handler(
     };
 
     match payload.validate() {
-        Ok(_) => {} // Valid payload, passing down.
+        Ok(_) => {}
         Err(field) => {
             let Some((_, ValidationErrorsKind::Field(validation_errors))) = field
                 .errors()
@@ -76,7 +76,7 @@ pub async fn handler(
     };
 
     match state.app.db.totp.store.add(document.clone()).await {
-        Ok(true) => {} // TOTP added, passing down.
+        Ok(true) => {}
         Ok(false) => {
             return base::response::error(
                 StatusCode::FORBIDDEN,
