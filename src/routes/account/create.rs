@@ -98,7 +98,7 @@ pub async fn handler(
         verify_requested: Some(bson::DateTime::now()),
         verify_code: Some(verify_code.clone()),
         created_at: None,
-        deleted: None,
+        deletion_requested: None,
     };
 
     match state.app.db.account.add(&account).await {

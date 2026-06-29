@@ -46,7 +46,7 @@ pub struct AccountDocument {
     ///
     /// TTL: ACCOUNT_DELETE_FRAME
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deleted: Option<bson::DateTime>,
+    pub deletion_requested: Option<bson::DateTime>,
 }
 
 pub struct AccountOperations {
@@ -105,6 +105,31 @@ impl AccountOperations {
         }
 
         Ok(true)
+    }
+
+    /// Get an account with no restrictive flags.
+    ///
+    /// Useful for getting resources for an account without actually checking status every time.
+    pub async fn get_active_from_id(
+        &self,
+        account_id: &str
+    ) -> Result<Option<AccountDocument>, mongodb::error::Error> {
+        let account = self.collection.find_one(bson::doc! { "account_id": account_id }).await;
+        let account = match account {
+            Ok(Some(account)) => account,
+            Ok(None) => {
+                return Ok(None);
+            }
+            Err(error) => {
+                return Err(error);
+            }
+        };
+
+        if account.verify_requested.is_some() || account.deletion_requested.is_some() {
+            return Ok(None);
+        }
+
+        Ok(Some(account))
     }
 
     pub async fn get_from_id(

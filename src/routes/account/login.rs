@@ -114,7 +114,7 @@ pub async fn handler(
         }
     }
 
-    match account.deleted {
+    match account.deletion_requested {
         None => {}
         Some(_) => {
             return base::response::error(
