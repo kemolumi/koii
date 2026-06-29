@@ -11,9 +11,14 @@ use crate::env::SUDO_MAX_AGE;
 
 #[derive(Serialize, Deserialize)]
 pub struct SudoDocument {
-    account_id: String,
-    identifier: String,
-    created_at: bson::DateTime,
+    /// Unique ID to the account.
+    pub account_id: String,
+
+    /// The token's identifier.
+    pub identifier: String,
+
+    /// TTL: SUDO_MAX_AGE
+    pub created_at: bson::DateTime,
 }
 
 pub struct SudoOperations {
