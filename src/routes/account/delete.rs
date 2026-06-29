@@ -6,7 +6,9 @@ use axum::{
 };
 
 use crate::{
-    base::{ self, cookies, response::ResponseModel }, middlewares::auth::AuthorizationInfo, routes::account::AccountRoutesState
+    base::{ self, cookies, response::ResponseModel },
+    middlewares::auth::AuthorizationInfo,
+    routes::account::AccountRoutesState,
 };
 
 pub async fn handler(
@@ -19,7 +21,7 @@ pub async fn handler(
 
     // Safely remove the account first, if fail, don't remove token.
     match state.app.db.account.mark_deletion(&token.account_id).await {
-        Ok(_) => {} // Account marked deletion, passing down.
+        Ok(_) => {}
         Err(error) => {
             tracing::error!("Unable to mark deletion for {}: {}", token.account_id, error);
             return base::response::internal_error(None);
@@ -28,7 +30,7 @@ pub async fn handler(
 
     // Account now gone, delete tokens in cache.
     match state.app.db.auth.clone().revoke_all(&token.account_id).await {
-        Ok(_) => {} // Revoked, passing down.
+        Ok(_) => {}
         Err(error) => {
             tracing::error!("Unable to revoke all tokens for {}: {}", &token.account_id, error);
             return base::response::internal_error(None);
