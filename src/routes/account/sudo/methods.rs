@@ -22,22 +22,26 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
-    let mut methods = SudoMethodsResponse {
-        email: true,
-        totp: false,
-        passkey: false,
-    };
-
-    match state.app.db.totp.store.get_from_account(&token.account_id).await {
-        Ok(None) => {}
-        Ok(Some(_)) => {
-            methods.totp = true;
-            methods.email = false;
+    let account = match state.app.db.account.get_active_from_id(&token.account_id).await {
+        Ok(Some(account)) => account,
+        Ok(None) => {
+            return base::response::error(
+                StatusCode::NOT_FOUND,
+                "The account is currently on hold.",
+                None
+            );
         }
-        Err(_) => {
+        Err(error) => {
+            tracing::error!("Unable to retreive account for {}: {}", token.account_id, error);
             return base::response::internal_error(None);
         }
-    }
+    };
+
+    let methods = SudoMethodsResponse {
+        email: account.mfa_status.has_mfa(),
+        totp: account.mfa_status.totp,
+        passkey: account.mfa_status.passkey,
+    };
 
     base::response::result(StatusCode::OK, methods, None)
 }
