@@ -51,18 +51,19 @@ impl AuthOperations {
         Ok(AuthOperations { collection, cache })
     }
 
-    /// Add token to cache and database.
+    /// Add token's identifier to cache and database.
     pub async fn issue(
         &mut self,
-        claims: KeyClaims,
+        account_id: String,
+        identifier: String,
         created_at: u64
     ) -> Result<bool, AuthOperationError> {
-        let cache_key = format!("account:{}:token:{}", &claims.account_id, &claims.identifier);
+        let cache_key = format!("account:{}:token:{}", &account_id, &identifier);
 
         // Add database entry as a fallback.
         let result = self.collection.insert_one(AuthDocument {
-            account_id: claims.account_id,
-            identifier: claims.identifier,
+            account_id,
+            identifier,
             created_at: bson::DateTime::from_millis((created_at * 1000) as i64),
         }).await;
 
