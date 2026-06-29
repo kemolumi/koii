@@ -1,54 +1,41 @@
 use std::{ fs::File, io::Read, path::Path };
 
 use jsonwebtoken::{ DecodingKey, EncodingKey, Header, Validation };
-use nanoid::nanoid;
 use serde::{ Deserialize, Serialize };
 
-use crate::env::{
-    ACCOUNT_TOKEN_IDENTIFIER_LENGTH,
-    JWT_PRIVATE,
-    JWT_PUBLIC,
-    REFRESH_MAX_AGE,
-    TOKEN_MAX_AGE,
-};
+use crate::env::{ JWT_PRIVATE, JWT_PUBLIC };
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum KeyKind {
     /// Access token of the user.
     ///
     /// This type of token stays in cookie field for koii's subservice to know which user it is.
-    AUTHENTICATION,
+    Authentication,
 
     /// Refresh token of the user.
     ///
     /// This type of token stays in cookie field for /refresh endpoint.
-    REFRESH,
+    Refresh,
 
     /// Temporary token for logged in user, but requires UPGRADE token to turn it into AUTHENTICATION.
     ///
-    /// This token is only given to a user with at least one 2FA method enabled.
+    /// This token is only given to a user with at least one MFA method enabled.
     ///
     /// NEVER PUT THIS TOKEN IN COOKIE.
-    LOGIN,
+    PartialLogin,
 
-    /// Upgrade token for user after verified via 2FA.
+    /// MFA Upgrade token for user after verified via MFA.
     ///
     /// NEVER PUT THIS TOKEN IN COOKIE.
-    UPGRADE,
+    MfaUpgrade,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyClaims {
-    pub identifier: String,
     pub account_id: String,
+    pub identifier: String,
     pub kind: KeyKind,
     pub exp: u64,
-}
-
-pub struct JwtPair {
-    pub token: (KeyClaims, String),
-    pub refresh: (KeyClaims, String),
-    pub created_at: u64,
 }
 
 pub struct JwtService {
@@ -79,15 +66,18 @@ impl JwtService {
     }
 
     /// Will panic if the private key is not provided.
-    pub fn generate(&self, account_id: &str) -> JwtPair {
-        let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
-        let created_at = jsonwebtoken::get_current_timestamp();
-
+    pub fn generate(
+        &self,
+        account_id: String,
+        identifier: String,
+        kind: KeyKind,
+        exp: u64
+    ) -> (KeyClaims, String) {
         let token_claims = KeyClaims {
-            identifier: identifier.clone(),
-            account_id: account_id.to_owned(),
-            kind: KeyKind::AUTHENTICATION,
-            exp: created_at + TOKEN_MAX_AGE.as_secs(),
+            account_id: account_id,
+            identifier: identifier,
+            kind,
+            exp,
         };
 
         let token = jsonwebtoken::jws
@@ -98,32 +88,7 @@ impl JwtService {
             )
             .unwrap();
 
-        let refresh_claims = KeyClaims {
-            identifier: identifier.clone(),
-            account_id: account_id.to_owned(),
-            kind: KeyKind::REFRESH,
-            exp: created_at + REFRESH_MAX_AGE.as_secs(),
-        };
-
-        let refresh = jsonwebtoken::jws
-            ::encode(
-                &Header::new(self.algorithm),
-                Some(&refresh_claims),
-                self.private_key.as_ref().unwrap()
-            )
-            .unwrap();
-
-        JwtPair {
-            token: (
-                token_claims,
-                format!("{}.{}.{}", token.protected, token.payload, token.signature),
-            ),
-            refresh: (
-                refresh_claims,
-                format!("{}.{}.{}", refresh.protected, refresh.payload, refresh.signature),
-            ),
-            created_at,
-        }
+        (token_claims, format!("{}.{}.{}", token.protected, token.payload, token.signature))
     }
 
     /// Any error happens during verification will return `None`.
