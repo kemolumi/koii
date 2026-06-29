@@ -41,6 +41,11 @@ podman run -d -p 27018:27017 --name koiiMongo2 --network koiiMongodbCluster mong
 podman run -d -p 27019:27017 --name koiiMongo3 --network koiiMongodbCluster mongo:8.0.4 mongod --replSet koiiReplicaSet --bind_ip localhost,koiiMongo3
 podman run -d -p 6379:6379 --name koiiDragonfly --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
 
+podman start koiiMongoPrimary
+podman start koiiMongo2
+podman start koiiMongo3
+podman start koiiDragonfly
+
 sleep 1
 
 podman exec -it koiiMongoPrimary mongosh --eval "rs.initiate({
