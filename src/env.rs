@@ -35,6 +35,7 @@ pub const RESEND_TOKEN: LazyLock<String> = LazyLock::new(|| get_env_value("RESEN
 // Time based configs.
 pub const TOKEN_MAX_AGE: LazyLock<Duration> = LazyLock::new(|| secs_from_env("TOKEN_MAX_AGE"));
 pub const REFRESH_MAX_AGE: LazyLock<Duration> = LazyLock::new(|| secs_from_env("REFRESH_MAX_AGE"));
+pub const UPGRADE_MAX_AGE: LazyLock<Duration> = LazyLock::new(|| secs_from_env("UPGRADE_MAX_AGE"));
 pub const SUDO_MAX_AGE: LazyLock<Duration> = LazyLock::new(|| secs_from_env("SUDO_MAX_AGE"));
 pub const EMAIL_VERIFY_EXPIRE: LazyLock<Duration> = LazyLock::new(||
     secs_from_env("EMAIL_VERIFY_EXPIRE")
@@ -44,6 +45,9 @@ pub const ACCOUNT_DELETE_WINDOW: LazyLock<Duration> = LazyLock::new(||
 );
 pub const TOTP_CODE_VOID_WINDOW: LazyLock<Duration> = LazyLock::new(||
     secs_from_env("TOTP_CODE_VOID_WINDOW")
+);
+pub const EMAIL_BATCHING_WINDOW: LazyLock<Duration> = LazyLock::new(||
+    secs_from_env("EMAIL_BATCHING_WINDOW")
 );
 
 // Argon2id configs.
