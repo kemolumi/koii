@@ -38,7 +38,7 @@ pub async fn handler(
     };
 
     let methods = SudoMethodsResponse {
-        email: account.mfa_status.has_mfa(),
+        email: !account.mfa_status.has_mfa(),
         totp: account.mfa_status.totp,
         passkey: account.mfa_status.passkey,
     };
