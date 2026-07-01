@@ -146,9 +146,8 @@ impl AuthOperations {
             ));
         }
 
-        let db_result = self.collection.delete_many(bson::doc! { "account_id": account_id }).await?;
-
         self.cache.mset::<_, _, String>(&mset_props).await?;
+        let db_result = self.collection.delete_many(bson::doc! { "account_id": account_id }).await?;
 
         Ok(db_result.deleted_count)
     }
