@@ -36,6 +36,9 @@ impl TotpUsedCodeOperations {
         Ok(TotpUsedCodeOperations { collection })
     }
 
+    /// This is a DB operation for ensuring that the TOTP code isn't replayed,
+    /// **NOT** a way to verify TOTP and put it in a database at the same time,
+    /// do it yourself before putting it in.
     pub async fn use_code(
         &self,
         document: &TotpUsedCodeDocument
