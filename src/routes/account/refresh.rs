@@ -7,7 +7,7 @@ use crate::{
     env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::jwt::KeyKind,
+    utils::jwt::{ KeyClaims, KeyKind },
 };
 
 pub async fn handler(
@@ -21,19 +21,21 @@ pub async fn handler(
     let created_at = jsonwebtoken::get_current_timestamp();
     let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
 
-    let token = state.app.jwt.generate(
-        revoking_refresh.account_id.clone(),
-        identifier.clone(),
-        KeyKind::Authentication,
-        created_at + TOKEN_MAX_AGE.as_secs()
-    );
+    let signed_token = state.app.jwt.generate(KeyClaims {
+        account_id: revoking_refresh.account_id.clone(),
+        identifier: identifier.clone(),
+        kind: KeyKind::Authentication,
+        iat: created_at,
+        exp: created_at + TOKEN_MAX_AGE.as_secs(),
+    });
 
-    let refresh = state.app.jwt.generate(
-        revoking_refresh.account_id.clone(),
-        identifier.clone(),
-        KeyKind::Refresh,
-        created_at + REFRESH_MAX_AGE.as_secs()
-    );
+    let signed_refresh = state.app.jwt.generate(KeyClaims {
+        account_id: revoking_refresh.account_id.clone(),
+        identifier: identifier.clone(),
+        kind: KeyKind::Refresh,
+        iat: created_at,
+        exp: created_at + REFRESH_MAX_AGE.as_secs(),
+    });
 
     match
         state.app.db.auth
@@ -72,10 +74,10 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", token.signed, "/", *TOKEN_MAX_AGE);
+    let token_cookie = cookies::construct("token", signed_token, "/", *TOKEN_MAX_AGE);
     let refresh_cookie = cookies::construct(
         "refresh",
-        refresh.signed,
+        signed_refresh,
         "/account/refresh",
         *REFRESH_MAX_AGE
     );

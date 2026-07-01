@@ -14,7 +14,7 @@ use crate::{
     env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, PARTIAL_LOGIN_MAX_AGE, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::jwt::KeyKind,
+    utils::jwt::{ KeyClaims, KeyKind },
     workers::verify_pass::VerifyPassRequest,
 };
 
@@ -131,34 +131,37 @@ pub async fn handler(
     match account.mfa_status.has_mfa() {
         false => {}
         true => {
-            let partial_login = state.app.jwt.generate(
-                account.account_id,
+            let signed_partial_login = state.app.jwt.generate(KeyClaims {
+                account_id: account.account_id,
                 identifier,
-                KeyKind::PartialLogin,
-                created_at + PARTIAL_LOGIN_MAX_AGE.as_secs()
-            );
+                kind: KeyKind::PartialLogin,
+                iat: created_at,
+                exp: created_at + PARTIAL_LOGIN_MAX_AGE.as_secs(),
+            });
 
             return base::response::result(
                 StatusCode::OK,
-                LoginResponse { partial_login: Some(partial_login.signed) },
+                LoginResponse { partial_login: Some(signed_partial_login) },
                 None
             );
         }
     }
 
-    let token = state.app.jwt.generate(
-        account.account_id.clone(),
-        identifier.clone(),
-        KeyKind::Authentication,
-        created_at + TOKEN_MAX_AGE.as_secs()
-    );
+    let signed_token = state.app.jwt.generate(KeyClaims {
+        account_id: account.account_id.clone(),
+        identifier: identifier.clone(),
+        kind: KeyKind::Authentication,
+        iat: created_at,
+        exp: created_at + TOKEN_MAX_AGE.as_secs(),
+    });
 
-    let refresh = state.app.jwt.generate(
-        account.account_id.clone(),
-        identifier.clone(),
-        KeyKind::Refresh,
-        created_at + REFRESH_MAX_AGE.as_secs()
-    );
+    let signed_refresh = state.app.jwt.generate(KeyClaims {
+        account_id: account.account_id.clone(),
+        identifier: identifier.clone(),
+        kind: KeyKind::Refresh,
+        iat: created_at,
+        exp: created_at + REFRESH_MAX_AGE.as_secs(),
+    });
 
     match state.app.db.auth.clone().issue(account.account_id.clone(), identifier, created_at).await {
         Ok(true) => {}
@@ -176,10 +179,10 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", token.signed, "/", *TOKEN_MAX_AGE);
+    let token_cookie = cookies::construct("token", signed_token, "/", *TOKEN_MAX_AGE);
     let refresh_cookie = cookies::construct(
         "refresh",
-        refresh.signed,
+        signed_refresh,
         "/account/refresh",
         *REFRESH_MAX_AGE
     );

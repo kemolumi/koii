@@ -53,6 +53,7 @@ pub struct KeyClaims {
     pub account_id: String,
     pub identifier: String,
     pub kind: KeyKind,
+    pub iat: u64,
     pub exp: u64,
 }
 
@@ -90,20 +91,7 @@ impl JwtService {
     }
 
     /// Will panic if the private key is not provided.
-    pub fn generate(
-        &self,
-        account_id: String,
-        identifier: String,
-        kind: KeyKind,
-        exp: u64
-    ) -> JwtToken {
-        let claims = KeyClaims {
-            account_id: account_id,
-            identifier: identifier,
-            kind,
-            exp,
-        };
-
+    pub fn generate(&self, claims: KeyClaims) -> String {
         let token = jsonwebtoken::jws
             ::encode(
                 &Header::new(self.algorithm),
@@ -112,10 +100,7 @@ impl JwtService {
             )
             .unwrap();
 
-        JwtToken {
-            claims,
-            signed: format!("{}.{}.{}", token.protected, token.payload, token.signature),
-        }
+        format!("{}.{}.{}", token.protected, token.payload, token.signature)
     }
 
     /// Any error happens during verification will return `None`.
