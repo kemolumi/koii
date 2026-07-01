@@ -9,25 +9,43 @@ use crate::env::{ JWT_PRIVATE, JWT_PUBLIC };
 pub enum KeyKind {
     /// Access token of the user.
     ///
-    /// This type of token stays in cookie field for koii's subservice to know which user it is.
+    /// The identifier field is shared with `Refresh`.
+    ///
+    /// This type of token stays in cookie field.
     Authentication,
 
     /// Refresh token of the user.
     ///
-    /// This type of token stays in cookie field for /refresh endpoint.
+    /// The identifier field is shared with `Authentication`.
+    ///
+    /// This type of token stays in cookie field for /account/refresh endpoint.
     Refresh,
 
-    /// Temporary token for logged in user, but requires UPGRADE token to turn it into AUTHENTICATION.
+    /// Temporary token for logged in user, requires `MfaUpgrade` token to allow user to have `Authentication`.
     ///
-    /// This token is only given to a user with at least one MFA method enabled.
+    /// The identifier field is unique to this type of token, **DO NOT** reuse.
     ///
-    /// NEVER PUT THIS TOKEN IN COOKIE.
+    /// **NEVER PUT THIS TOKEN IN COOKIE.**
     PartialLogin,
 
     /// MFA Upgrade token for user after verified via MFA.
     ///
-    /// NEVER PUT THIS TOKEN IN COOKIE.
+    /// The identifier field is unique to this type of token, **DO NOT** reuse.
+    ///
+    /// This can have multiple uses, the token can be used for:
+    /// - Upgrade from `PartialLogin` to `Authentication`.
+    /// - Create `Sudo` in combination with `Authentication`.
+    /// - Create access code after OAuth2 to perform critical operations on 3rd party services.
+    ///
+    /// **NEVER PUT THIS TOKEN IN COOKIE.**
     MfaUpgrade,
+
+    /// A token with full control over a user, requires both `Authentication` and `MfaUpgrade` token to upgrade to.
+    ///
+    /// The identifier field is unique to this type of token, **DO NOT** reuse.
+    ///
+    /// **NEVER PUT THIS TOKEN IN COOKIE.**
+    Sudo,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
