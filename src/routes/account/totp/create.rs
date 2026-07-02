@@ -75,7 +75,7 @@ pub async fn handler(
         account_id: token.account_id,
     };
 
-    match state.app.db.totp.store.add(&document).await {
+    match state.app.db.totp.store.add(document.clone()).await {
         Ok(true) => {}
         Ok(false) => {
             return base::response::error(
