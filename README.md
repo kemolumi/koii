@@ -68,8 +68,10 @@ Every modules is tied together using `AppState`, see `lib.rs` to see the structu
 - [ ] Advanced user operations:
   - [ ] Destructive operations protection.
   - [ ] 2FA.
-    - [x] TOTP utilities.
-    - [x] Passkey utilities.
+    - [x] Login with TOTP.
+    - [ ] Sudo with TOTP.
+    - [ ] Login with Passkey.
+    - [ ] Sudo with Passkey.
   - [ ] Reactivate account.
   - [ ] Forget/edit password.
   - [ ] Change email.
