@@ -1,7 +1,7 @@
 use axum_test::{ TestResponse, TestServer };
-use koii::app;
+use koii::{ app, base };
 use serde::{ Deserialize, Serialize };
-use serde_json::json;
+use serde_json::{ json, Value };
 use reqwest::StatusCode;
 use totp_rs::TOTP;
 
@@ -14,7 +14,7 @@ async fn test_suite() {
     let wrong_password = "sd08h800)(H)9h0sdc";
 
     // No account.
-    let response = account_login(&server, correct_password, None).await;
+    let response = account_login(&server, correct_password).await;
     response.assert_status(StatusCode::NOT_FOUND);
     response.assert_json(&json!({"success": false, "error": "Wrong email or password."}));
 
@@ -31,12 +31,12 @@ async fn test_suite() {
     response.assert_json(&json!({"success": false, "error": "Email already registered."}));
 
     // Sign in bad password.
-    let response = account_login(&server, wrong_password, None).await;
+    let response = account_login(&server, wrong_password).await;
     response.assert_status(StatusCode::NOT_FOUND);
     response.assert_json(&json!({"success": false, "error": "Wrong email or password."}));
 
     // Sign in but didn't verify.
-    let response = account_login(&server, correct_password, None).await;
+    let response = account_login(&server, correct_password).await;
     response.assert_status(StatusCode::FORBIDDEN);
     response.assert_json(
         &json!({"success": false, "error": "This account is pending for verification, please check your email."})
@@ -55,14 +55,14 @@ async fn test_suite() {
     );
 
     // Sign in.
-    let response = account_login(&server, correct_password, None).await;
+    let response = account_login(&server, correct_password).await;
     response.assert_status(StatusCode::OK);
     response.assert_json(&json!({"success": true}));
 
     server.add_cookie(response.cookie("token"));
 
     // Sign in again.
-    let response = account_login(&server, correct_password, None).await;
+    let response = account_login(&server, correct_password).await;
     response.assert_status(StatusCode::FORBIDDEN);
     response.assert_json(&json!({"success": false, "error": "There's already an active account."}));
 
@@ -111,22 +111,36 @@ async fn test_suite() {
 
     server.clear_cookies();
 
-    // Sign in but miassing TOTP.
-    let response = account_login(&server, correct_password, None).await;
-    response.assert_status(StatusCode::FORBIDDEN);
-    response.assert_json(&json!({"success": false, "error": "TOTP Required."}));
+    // Sign in with a 2FA-enabled account.
+    let response = account_login(&server, correct_password).await;
+    response.assert_status(StatusCode::OK);
+    response.assert_json(
+        &json!({"success": true, "result": { "mfa_login" : axum_test::expect_json::string() } })
+    );
 
-    // Sign in with TOTP.
+    let payload = response.json::<Value>();
+    let mfa_login = payload.get("result").unwrap().get("mfa_login").unwrap().as_str().unwrap();
+
+    // Authorize current TOTP.
     let current_totp = totp.generate_current().unwrap();
 
-    let success_login = account_login(&server, correct_password, Some(current_totp.clone())).await;
+    let success_login = totp_login(&server, mfa_login, &current_totp).await;
     success_login.assert_status(StatusCode::OK);
     success_login.assert_json(&json!({"success": true}));
 
-    // Sign in with the same TOTP code.
-    let response = account_login(&server, correct_password, Some(current_totp)).await;
+    // Authorize with the same TOTP code.
+    let response = totp_login(&server, mfa_login, &current_totp).await;
     response.assert_status(StatusCode::UNAUTHORIZED);
     response.assert_json(&json!({"success": false, "error": "Wrong TOTP code."}));
+
+    // Authorize with new, valid TOTP, but the same MfaLogin token.
+    let response = totp_login(
+        &server,
+        mfa_login,
+        &totp.generate(base::timestamp::now().as_secs() + 30)
+    ).await;
+    response.assert_status(StatusCode::UNAUTHORIZED);
+    response.assert_json(&json!({"success": false, "error": "Get out."}));
 
     // Add refresh from previous successful login.
     server.add_cookie(success_login.cookie("refresh"));
@@ -142,11 +156,19 @@ async fn test_suite() {
     response.assert_json(&json!({"success": false, "error": "Get out."}));
 }
 
-async fn account_login(server: &TestServer, password: &str, code: Option<String>) -> TestResponse {
+async fn account_login(server: &TestServer, password: &str) -> TestResponse {
     server
         .post("/account/login")
         .json(
-            &json!({"email": "test@dafinsdaf.com", "password": password, "totp_code": code, "clientstile": "A"})
+            &json!({"email": "test@dafinsdaf.com", "password": password, "turnstile_token": "A"})
+        ).await
+}
+
+async fn totp_login(server: &TestServer, mfa_login: &str, totp_code: &str) -> TestResponse {
+    server
+        .post("/account/totp/login")
+        .json(
+            &json!({"mfa_login": mfa_login, "totp_code": totp_code, "turnstile_token": "A"})
         ).await
 }
 
@@ -154,7 +176,7 @@ async fn create_account(server: &TestServer, password: &str) -> TestResponse {
     server
         .post("/account")
         .json(
-            &json!({"email": "test@dafinsdaf.com", "password": password, "clientstile": "A"})
+            &json!({"email": "test@dafinsdaf.com", "password": password, "turnstile_token": "A"})
         ).await
 }
 
