@@ -64,7 +64,7 @@ pub async fn handler(
     match totp.check_current(&payload.totp_code) {
         Ok(true) => {}
         Ok(false) => {
-            return base::response::error(StatusCode::FORBIDDEN, "Wrong TOTP code.", None);
+            return base::response::error(StatusCode::UNAUTHORIZED, "Wrong TOTP code.", None);
         }
         Err(error) => {
             tracing::error!("Verify TOTP failed for {}: {error}", &token.account_id);
@@ -81,7 +81,7 @@ pub async fn handler(
     match state.app.db.totp.code.consume(&totp_used).await {
         Ok(true) => {}
         Ok(false) => {
-            return base::response::error(StatusCode::FORBIDDEN, "Wrong TOTP code.", None);
+            return base::response::error(StatusCode::UNAUTHORIZED, "Wrong TOTP code.", None);
         }
         Err(error) => {
             tracing::error!("Can't use TOTP code for {}: {error}", &totp_used.account_id);
