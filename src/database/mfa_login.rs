@@ -1,23 +1,23 @@
 use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
 
-use crate::env::PARTIAL_LOGIN_MAX_AGE;
+use crate::env::MFA_LOGIN_MAX_AGE;
 
 #[derive(Deserialize, Serialize)]
-pub struct PartialLoginDocument {
+pub struct MfaLoginDocument {
     /// Unique ID to the account.
     pub account_id: String,
     pub identifier: String,
     pub issued_at: bson::DateTime,
 }
 
-pub struct PartialLoginOperations {
-    collection: Collection<PartialLoginDocument>,
+pub struct MfaLoginOperations {
+    collection: Collection<MfaLoginDocument>,
 }
 
-impl PartialLoginOperations {
+impl MfaLoginOperations {
     pub async fn new(
-        collection: Collection<PartialLoginDocument>
+        collection: Collection<MfaLoginDocument>
     ) -> Result<Self, mongodb::error::Error> {
         collection.create_index(
             IndexModel::builder()
@@ -29,16 +29,16 @@ impl PartialLoginOperations {
         collection.create_index(
             IndexModel::builder()
                 .keys(bson::doc! { "issued_at": 1 })
-                .options(IndexOptions::builder().expire_after(*PARTIAL_LOGIN_MAX_AGE).build())
+                .options(IndexOptions::builder().expire_after(*MFA_LOGIN_MAX_AGE).build())
                 .build()
         ).await?;
 
-        Ok(PartialLoginOperations { collection })
+        Ok(MfaLoginOperations { collection })
     }
 
     pub async fn consume(
         &self,
-        document: &PartialLoginDocument
+        document: &MfaLoginDocument
     ) -> Result<bool, mongodb::error::Error> {
         match self.collection.insert_one(document).await {
             Ok(_) => {}

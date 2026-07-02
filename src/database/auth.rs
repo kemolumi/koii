@@ -5,7 +5,7 @@ use redis::{ AsyncCommands, RedisError, aio::MultiplexedConnection };
 use serde::{ Deserialize, Serialize };
 use thiserror::Error;
 
-use crate::{ env::REFRESH_MAX_AGE, utils::{ jwt::KeyClaims, timestamp } };
+use crate::{ base, env::REFRESH_MAX_AGE, utils::jwt::KeyClaims };
 
 #[derive(Deserialize, Serialize)]
 pub struct AuthDocument {
@@ -105,7 +105,7 @@ impl AuthOperations {
     /// But in some cases, better be safe than sorry, this method performs a basic manual check against the `exp` field of the key.
     pub async fn check_token(&self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
         let mut cache = self.cache.clone();
-        let current_time = timestamp::now();
+        let current_time = base::timestamp::now();
 
         let status = cache.get::<String, Option<bool>>(
             format!("account:{}:token:{}", claims.account_id, claims.identifier)

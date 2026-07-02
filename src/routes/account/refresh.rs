@@ -7,7 +7,7 @@ use crate::{
     env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::{ jwt::{ KeyClaims, KeyKind }, timestamp },
+    utils::{ jwt::{ KeyClaims, KeyKind } },
 };
 
 pub async fn handler(
@@ -18,7 +18,7 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
-    let issued_at = timestamp::now();
+    let issued_at = base::timestamp::now();
     let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
 
     let signed_token = state.app.jwt.generate(KeyClaims {

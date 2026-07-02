@@ -1,23 +1,21 @@
 use axum::{ Extension, Json, extract::State, http::StatusCode };
 use mongodb::bson;
-use nanoid::nanoid;
 use serde::Deserialize;
 use validator::Validate;
 
 use crate::{
     base::{ self, response::ResponseModel },
-    database::{ partial_login::PartialLoginDocument, totp::code::TotpUsedCodeDocument },
-    env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, MFA_UPGRADE_MAX_AGE },
+    database::{ mfa_login::MfaLoginDocument, totp::code::TotpUsedCodeDocument },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::{ jwt::{ KeyClaims, KeyKind }, timestamp },
+    utils::jwt::KeyKind,
 };
 
 #[derive(Deserialize, Validate, Clone)]
 pub struct UpgradePayload {
     #[validate(length(equal = 6))]
     pub totp_code: String,
-    pub partial_login: Option<String>,
+    pub mfa_login: String,
 }
 
 pub async fn handler(
@@ -25,6 +23,14 @@ pub async fn handler(
     State(state): State<AccountRoutesState>,
     Json(payload): Json<UpgradePayload>
 ) -> ResponseModel {
+    if authorization_info.active {
+        return base::response::error(
+            StatusCode::FORBIDDEN,
+            "There's already an active account.",
+            None
+        );
+    }
+
     match payload.validate() {
         Ok(_) => {}
         Err(_) => {
@@ -36,20 +42,8 @@ pub async fn handler(
         }
     }
 
-    let token = match payload.partial_login {
-        Some(partial_login) => {
-            let Some(token) = state.app.jwt.verify(&partial_login, KeyKind::PartialLogin) else {
-                return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
-            };
-
-            token
-        }
-        None => {
-            let Some(token) = authorization_info.token else {
-                return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
-            };
-            token
-        }
+    let Some(token) = state.app.jwt.verify(&payload.mfa_login, KeyKind::MfaLogin) else {
+        return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
     let totp = match state.app.db.totp.store.get_from_account(&token.account_id).await {
@@ -95,36 +89,38 @@ pub async fn handler(
         }
     }
 
-    if token.kind == KeyKind::PartialLogin {
-        let consume_document = PartialLoginDocument {
-            account_id: totp_used.account_id.clone(),
-            identifier: token.identifier,
-            issued_at: bson::DateTime::from_millis(token.iat.as_millis() as i64),
-        };
-        match state.app.db.partial_login.consume(&consume_document).await {
-            Ok(true) => {}
-            Ok(false) => {
-                return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
-            }
-            Err(error) => {
-                tracing::error!(
-                    "Failed to consume `PartialLogin` token for {}: {error}",
-                    consume_document.account_id
-                );
-                return base::response::internal_error(None);
-            }
+    let consume_document = MfaLoginDocument {
+        account_id: totp_used.account_id.clone(),
+        identifier: token.identifier,
+        issued_at: bson::DateTime::from_millis(token.iat.as_millis() as i64),
+    };
+
+    match state.app.db.mfa_login.consume(&consume_document).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
+        }
+        Err(error) => {
+            tracing::error!(
+                "Failed to consume `MfaToken` token for {}: {error}",
+                consume_document.account_id
+            );
+            return base::response::internal_error(None);
         }
     }
 
-    let issued_at = timestamp::now();
-    let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
-    let signed_mfa_upgrade = state.app.jwt.generate(KeyClaims {
-        account_id: totp_used.account_id,
-        identifier,
-        kind: KeyKind::MfaUpgrade,
-        iat: issued_at,
-        exp: issued_at + *MFA_UPGRADE_MAX_AGE,
-    });
+    let headers = match
+        base::auth::quick_issue(
+            &state.app.db.auth,
+            &state.app.jwt,
+            consume_document.account_id
+        ).await
+    {
+        Ok(headers) => headers,
+        Err(bad) => {
+            return bad;
+        }
+    };
 
-    base::response::result(StatusCode::OK, signed_mfa_upgrade.into(), None)
+    base::response::success(StatusCode::OK, Some(headers))
 }

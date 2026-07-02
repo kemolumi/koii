@@ -21,24 +21,12 @@ pub enum KeyKind {
     /// This type of token stays in cookie field for /account/refresh endpoint.
     Refresh,
 
-    /// Temporary token for logged in user, requires `MfaUpgrade` token to allow user to have `Authentication`.
+    /// A temporary token for logged in user when MFA step is required.
     ///
     /// The identifier field is unique to this type of token, **DO NOT** reuse.
     ///
     /// **NEVER PUT THIS TOKEN IN COOKIE.**
-    PartialLogin,
-
-    /// MFA Upgrade token for user after verified via MFA.
-    ///
-    /// The identifier field is unique to this type of token, **DO NOT** reuse.
-    ///
-    /// The token can be used for:
-    /// - Upgrade from `PartialLogin` to `Authentication`.
-    /// - Create `Sudo` in combination with `Authentication`.
-    /// - Create access code after OAuth2 to perform critical operations on 3rd party services.
-    ///
-    /// **NEVER PUT THIS TOKEN IN COOKIE.**
-    MfaUpgrade,
+    MfaLogin,
 
     /// A token with full control over a user, requires both `Authentication` and `MfaUpgrade` token to upgrade to.
     ///

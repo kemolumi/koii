@@ -5,11 +5,11 @@ use crate::{ routes::account::AccountRoutesState };
 
 mod create;
 mod delete;
-mod authorize;
+mod login;
 
 pub fn routes(state: AccountRoutesState) -> Router<AccountRoutesState> {
     Router::new()
         .route("/", post(create::handler).delete(delete::handler))
-        .route("/authorize", post(authorize::handler))
+        .route("/login", post(login::handler))
         .with_state(state)
 }

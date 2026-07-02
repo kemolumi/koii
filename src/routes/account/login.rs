@@ -1,20 +1,14 @@
-use axum::{
-    Extension,
-    Json,
-    extract::State,
-    http::{ StatusCode, header::SET_COOKIE },
-    response::AppendHeaders,
-};
+use axum::{ Extension, Json, extract::State, http::StatusCode };
 use nanoid::nanoid;
 use serde::{ Deserialize, Serialize };
 use validator::Validate;
 
 use crate::{
-    base::{ self, cookies, response::ResponseModel },
-    env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, PARTIAL_LOGIN_MAX_AGE, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
+    base::{ self, response::ResponseModel },
+    env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, MFA_LOGIN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::{ jwt::{ KeyClaims, KeyKind }, timestamp },
+    utils::{ jwt::{ KeyClaims, KeyKind } },
     workers::verify_pass::VerifyPassRequest,
 };
 
@@ -31,7 +25,7 @@ pub struct LoginPayload {
 #[derive(Serialize, Validate, Clone)]
 pub struct LoginResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub partial_login: Option<String>,
+    pub mfa_login: Option<String>,
 }
 
 pub async fn handler(
@@ -125,71 +119,36 @@ pub async fn handler(
         }
     }
 
-    let issued_at = timestamp::now();
-    let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
-
     match account.mfa_status.has_mfa() {
         false => {}
         true => {
-            let signed_partial_login = state.app.jwt.generate(KeyClaims {
+            let issued_at = base::timestamp::now();
+            let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
+
+            let signed_mfa_login = state.app.jwt.generate(KeyClaims {
                 account_id: account.account_id,
                 identifier,
-                kind: KeyKind::PartialLogin,
+                kind: KeyKind::MfaLogin,
                 iat: issued_at,
-                exp: issued_at + *PARTIAL_LOGIN_MAX_AGE,
+                exp: issued_at + *MFA_LOGIN_MAX_AGE,
             });
 
             return base::response::result(
                 StatusCode::OK,
-                LoginResponse { partial_login: Some(signed_partial_login) },
+                LoginResponse { mfa_login: Some(signed_mfa_login) },
                 None
             );
         }
     }
 
-    let signed_token = state.app.jwt.generate(KeyClaims {
-        account_id: account.account_id.clone(),
-        identifier: identifier.clone(),
-        kind: KeyKind::Authentication,
-        iat: issued_at,
-        exp: issued_at + *TOKEN_MAX_AGE,
-    });
-
-    let signed_refresh = state.app.jwt.generate(KeyClaims {
-        account_id: account.account_id.clone(),
-        identifier: identifier.clone(),
-        kind: KeyKind::Refresh,
-        iat: issued_at,
-        exp: issued_at + *REFRESH_MAX_AGE,
-    });
-
-    match state.app.db.auth.issue(account.account_id, identifier, issued_at).await {
-        Ok(true) => {}
-        Ok(false) => {
-            tracing::error!("A nanoid collision was found.");
-            return base::response::error(
-                StatusCode::CONFLICT,
-                "Thank you for being this rare.",
-                None
-            );
+    let headers = match
+        base::auth::quick_issue(&state.app.db.auth, &state.app.jwt, account.account_id).await
+    {
+        Ok(headers) => headers,
+        Err(bad) => {
+            return bad;
         }
-        Err(error) => {
-            tracing::error!("Unable to issue a token ({signed_token}): {error}");
-            return base::response::internal_error(None);
-        }
-    }
+    };
 
-    let token_cookie = cookies::construct("token", signed_token, "/", *TOKEN_MAX_AGE);
-    let refresh_cookie = cookies::construct(
-        "refresh",
-        signed_refresh,
-        "/account/refresh",
-        *REFRESH_MAX_AGE
-    );
-
-    base::response::result(
-        StatusCode::OK,
-        LoginResponse { partial_login: None },
-        Some(AppendHeaders(vec![(SET_COOKIE, token_cookie), (SET_COOKIE, refresh_cookie)]))
-    )
+    base::response::result(StatusCode::OK, LoginResponse { mfa_login: None }, Some(headers))
 }

@@ -2,7 +2,7 @@ use crate::{
     database::{
         account::AccountOperations,
         auth::AuthOperations,
-        partial_login::PartialLoginOperations,
+        mfa_login::MfaLoginOperations,
         sudo::SudoOperations,
         totp::{ TotpOperations, code::TotpUsedCodeOperations, store::TotpStoreOperations },
     },
@@ -13,13 +13,13 @@ pub mod account;
 pub mod totp;
 pub mod auth;
 pub mod sudo;
-pub mod partial_login;
+pub mod mfa_login;
 
 pub struct Database {
     pub account: AccountOperations,
     pub totp: TotpOperations,
     pub auth: AuthOperations,
-    pub partial_login: PartialLoginOperations,
+    pub mfa_login: MfaLoginOperations,
     pub sudo: SudoOperations,
 }
 
@@ -40,7 +40,7 @@ impl Database {
         let totp_collection = mongo_database.collection("totp");
         let totp_code_collection = mongo_database.collection("totp_code");
         let auth_collection = mongo_database.collection("auth");
-        let partial_login_collection = mongo_database.collection("partial_login");
+        let mfa_login_collection = mongo_database.collection("mfa_login");
         let sudo_collection = mongo_database.collection("sudo");
 
         Ok(Database {
@@ -53,7 +53,7 @@ impl Database {
                 code: TotpUsedCodeOperations::new(totp_code_collection).await.unwrap(),
             },
             auth: AuthOperations::new(auth_collection, redis_client.clone()).await.unwrap(),
-            partial_login: PartialLoginOperations::new(partial_login_collection).await.unwrap(),
+            mfa_login: MfaLoginOperations::new(mfa_login_collection).await.unwrap(),
             sudo: SudoOperations::new(sudo_collection).await.unwrap(),
         })
     }
