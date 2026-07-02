@@ -4,6 +4,8 @@ use url::Url;
 // Any variables inside of this file can only be used AFTER `dotenv::dotenv().ok()`.
 // Failing to comply this will make the whole thing panic.
 
+pub const NAME: LazyLock<String> = LazyLock::new(|| get_env_value("NAME"));
+
 /// Interface for the server to run on.
 pub const HOST: LazyLock<SocketAddr> = LazyLock::new(||
     get_env_value("HOST").parse::<SocketAddr>().unwrap()
