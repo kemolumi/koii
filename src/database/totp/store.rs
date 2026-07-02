@@ -40,7 +40,7 @@ impl TotpStoreOperations {
 
     /// This method performs a transaction between `account` and `totp` collection, hence
     /// the need for the additional of mongodb client and account collection.
-    pub async fn add(&self, document: TotpStoreDocument) -> Result<bool, mongodb::error::Error> {
+    pub async fn add(&self, document: &TotpStoreDocument) -> Result<bool, mongodb::error::Error> {
         let mut session = self.mongo_client.start_session().await?;
 
         let result = session.start_transaction().and_run2(async move |session: &mut ClientSession| {
@@ -53,7 +53,7 @@ impl TotpStoreOperations {
                 .database("koii")
                 .collection::<TotpStoreDocument>("account");
 
-            collection.insert_one(&document).session(&mut *session).await?;
+            collection.insert_one(document).session(&mut *session).await?;
             let result = account_collection
                 .update_one(
                     bson::doc! { "account_id": &document.account_id },
