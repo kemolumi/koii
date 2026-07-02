@@ -26,10 +26,9 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
-    let mut auth = state.app.db.auth.clone();
     match options.all {
         Some(true) => {
-            match auth.revoke_all(&token.account_id).await {
+            match state.app.db.auth.revoke_all(&token.account_id).await {
                 Ok(_) => {}
                 Err(error) => {
                     tracing::error!(
@@ -42,7 +41,7 @@ pub async fn handler(
             }
         }
         _ => {
-            match auth.revoke(&token).await {
+            match state.app.db.auth.revoke(&token).await {
                 Ok(_) => {}
                 Err(error) => {
                     tracing::error!(

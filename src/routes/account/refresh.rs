@@ -60,7 +60,7 @@ pub async fn handler(
         }
     }
 
-    match state.app.db.auth.clone().revoke(&revoking_refresh).await {
+    match state.app.db.auth.revoke(&revoking_refresh).await {
         Ok(true) => {}
         Ok(false) => {
             return base::response::error(

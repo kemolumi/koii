@@ -58,10 +58,7 @@ pub async fn core() {
     match mode[1].as_str() {
         "secure" => {
             tracing::info!("Serving in secure context...");
-            let tls_config = RustlsConfig::from_pem_file(
-                SSL_CERT.clone(),
-                SSL_KEY.clone()
-            ).await.unwrap();
+            let tls_config = RustlsConfig::from_pem_file(&*SSL_CERT, &*SSL_KEY).await.unwrap();
             axum_server
                 ::bind_rustls(*HOST, tls_config)
                 .serve(app(false).await.into_make_service()).await

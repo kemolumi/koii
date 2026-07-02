@@ -55,7 +55,7 @@ impl AuthOperations {
 
     /// Add token's identifier to cache and database.
     pub async fn issue(
-        &mut self,
+        &self,
         account_id: String,
         identifier: String,
         issued_at: Duration
@@ -92,7 +92,7 @@ impl AuthOperations {
             .arg(true)
             .arg("EX")
             .arg(REFRESH_MAX_AGE.as_secs())
-            .exec_async(&mut self.cache).await?;
+            .exec_async(&mut self.cache.clone()).await?;
 
         Ok(true)
     }
@@ -103,10 +103,11 @@ impl AuthOperations {
     /// of `TOKEN_MAX_AGE`.When `jsonwebtoken` invalidates the token, the expired token won't reach here.
     ///
     /// But in some cases, better be safe than sorry, this method performs a basic manual check against the `exp` field of the key.
-    pub async fn check_token(&mut self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
+    pub async fn check_token(&self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
+        let mut cache = self.cache.clone();
         let current_time = timestamp::now();
 
-        let status = self.cache.get::<String, Option<bool>>(
+        let status = cache.get::<String, Option<bool>>(
             format!("account:{}:token:{}", claims.account_id, claims.identifier)
         ).await?;
 
@@ -117,11 +118,13 @@ impl AuthOperations {
         };
     }
 
-    pub async fn revoke(&mut self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
-        self.cache.set::<String, bool, String>(
-            format!("account:{}:token:{}", &claims.account_id, &claims.identifier),
-            false
-        ).await?;
+    pub async fn revoke(&self, claims: &KeyClaims) -> Result<bool, AuthOperationError> {
+        self.cache
+            .clone()
+            .set::<String, bool, String>(
+                format!("account:{}:token:{}", &claims.account_id, &claims.identifier),
+                false
+            ).await?;
 
         let db_result = self.collection.delete_one(
             bson::doc! { "account_id": &claims.account_id, "identifier": &claims.identifier }
@@ -130,7 +133,7 @@ impl AuthOperations {
         Ok(db_result.deleted_count == 1)
     }
 
-    pub async fn revoke_all(&mut self, account_id: &str) -> Result<u64, AuthOperationError> {
+    pub async fn revoke_all(&self, account_id: &str) -> Result<u64, AuthOperationError> {
         let mut tokens_cursor = self.collection.find(
             bson::doc! { "account_id": account_id }
         ).await?;
@@ -148,7 +151,7 @@ impl AuthOperations {
             ));
         }
 
-        self.cache.mset::<_, _, String>(&mset_props).await?;
+        self.cache.clone().mset::<_, _, String>(&mset_props).await?;
         let db_result = self.collection.delete_many(bson::doc! { "account_id": account_id }).await?;
 
         Ok(db_result.deleted_count)
@@ -156,7 +159,7 @@ impl AuthOperations {
 
     /// Cache miss, ask the database instead if this token is valid or not.
     async fn refetch(
-        &mut self,
+        &self,
         claims: &KeyClaims,
         current_time: Duration
     ) -> Result<bool, AuthOperationError> {
@@ -173,7 +176,7 @@ impl AuthOperations {
             .arg(document.is_some() && current_time <= claims.exp)
             .arg("EX")
             .arg(REFRESH_MAX_AGE.as_secs())
-            .exec_async(&mut self.cache).await?;
+            .exec_async(&mut self.cache.clone()).await?;
 
         Ok(document.is_some() && current_time <= claims.exp)
     }

@@ -83,7 +83,7 @@ async fn parse_cookies(
         let Some(payload) = jar.get("token") &&
         let Some(claims) = state.jwt.verify(payload.value(), KeyKind::Authentication)
     {
-        match state.db.auth.clone().check_token(&claims).await {
+        match state.db.auth.check_token(&claims).await {
             Ok(true) => {
                 token = Some(claims);
                 active = true;
@@ -102,7 +102,7 @@ async fn parse_cookies(
         let Some(payload) = jar.get("refresh") &&
         let Some(claims) = state.jwt.verify(payload.value(), KeyKind::Refresh)
     {
-        match state.db.auth.clone().check_token(&claims).await {
+        match state.db.auth.check_token(&claims).await {
             Ok(true) => {
                 refresh = Some(claims);
                 active = true;
