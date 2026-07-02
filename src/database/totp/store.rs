@@ -113,7 +113,7 @@ impl TotpStoreOperations {
                     bson::doc! { "account_id": &account_id },
                     bson::doc! {
                         "$set": {
-                            "mfa_status.totp": true
+                            "mfa_status.totp": false
                         }
                     }
                 )
