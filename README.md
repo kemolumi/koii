@@ -78,3 +78,5 @@ Every modules is tied together using `AppState`, see `lib.rs` to see the structu
 - [ ] OAuth2.
 - [ ] KNAPI. (Koii Notification API)
 - [ ] Ability to create account with: Gitlab, Github, Google, Microsoft, Apple. (so many Gs)
+- [ ] Optimize, clean up implementation.
+- [ ] v1.0.0
