@@ -150,5 +150,5 @@ pub async fn handler(
         }
     };
 
-    base::response::result(StatusCode::OK, LoginResponse { mfa_login: None }, Some(headers))
+    base::response::success(StatusCode::OK, Some(headers))
 }
