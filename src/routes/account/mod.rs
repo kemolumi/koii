@@ -10,6 +10,7 @@ mod login;
 mod totp;
 mod logout;
 mod delete;
+mod sudo;
 pub mod refresh;
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub fn routes(app_state: Arc<AppState>) -> Router {
         .route("/verify", patch(verify::handler))
         .route("/login", post(login::handler))
         .route("/refresh", get(refresh::handler))
+        .nest("/sudo", sudo::routes(state.clone()))
         .nest("/totp", totp::routes(state.clone()))
         .route("/logout", get(logout::handler))
         .layer(axum::middleware::from_fn_with_state(state.app.clone(), auth::authorize))
