@@ -37,11 +37,7 @@ pub async fn handler(
         exp: issued_at + *REFRESH_MAX_AGE,
     });
 
-    match
-        state.app.db.auth
-            .clone()
-            .issue(revoking_refresh.account_id.clone(), identifier, issued_at).await
-    {
+    match state.app.db.auth.issue(revoking_refresh.account_id.clone(), identifier, issued_at).await {
         Ok(true) => {}
         Ok(false) => {
             tracing::error!("A nanoid collision was found.");
@@ -51,11 +47,8 @@ pub async fn handler(
                 None
             );
         }
-        Err(_) => {
-            tracing::error!(
-                "Can't push a new token into database for {}",
-                revoking_refresh.account_id
-            );
+        Err(error) => {
+            tracing::error!("Unable to issue a token ({}): {error}", signed_token);
             return base::response::internal_error(None);
         }
     }

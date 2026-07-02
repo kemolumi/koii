@@ -3826,6 +3826,7 @@ dependencies = [
  "base32",
  "constant_time_eq",
  "hmac",
+ "serde",
  "sha1",
  "sha2",
  "url",

@@ -91,12 +91,12 @@ pub async fn handler(
     };
 
     let account = AccountDocument {
-        account_id: account_id.clone(),
-        email: payload.email.clone(),
+        account_id: account_id,
+        email: payload.email,
         password_hash,
         mfa_status: AccountMfaStatus { totp: false, passkey: false },
         verify_requested: Some(bson::DateTime::now()),
-        verify_code: Some(verify_code.clone()),
+        verify_code: Some(verify_code),
         issued_at: None,
         deletion_requested: None,
     };
@@ -107,14 +107,15 @@ pub async fn handler(
             return base::response::error(StatusCode::CONFLICT, "Email already registered.", None);
         }
         Err(error) => {
-            tracing::error!("Database failed to store {}: {}", &payload.email, error);
+            tracing::error!("Database failed to store {}: {}", account.email, error);
             return base::response::internal_error(None);
         }
     }
 
     state.app.worker.verify_email.send_ignore(VerifyEmailRequest {
-        email: payload.email,
-        verify_code,
+        email: account.email,
+        // unwrap(): `verify_code` can't be `None` in this situation. 
+        verify_code: account.verify_code.unwrap(),
     }).await;
 
     base::response::result(

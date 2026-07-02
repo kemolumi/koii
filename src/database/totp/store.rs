@@ -7,14 +7,13 @@ use mongodb::{
     options::IndexOptions,
 };
 use serde::{ Deserialize, Serialize };
-
-use crate::utils::totp::Totp;
+use totp_rs::TOTP;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct TotpStoreDocument {
     /// Unique ID to the account.
     pub account_id: String,
-    pub totp: Totp,
+    pub totp: TOTP,
 }
 
 #[derive(Clone)]
@@ -83,7 +82,7 @@ impl TotpStoreOperations {
     pub async fn get_from_account(
         &self,
         account_id: &str
-    ) -> Result<Option<Totp>, mongodb::error::Error> {
+    ) -> Result<Option<TOTP>, mongodb::error::Error> {
         let totp_collection = self.collection.find_one(
             bson::doc! { "account_id": account_id }
         ).await?;

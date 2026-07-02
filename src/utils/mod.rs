@@ -1,5 +1,4 @@
 pub mod jwt;
 pub mod passkey;
 pub mod turnstile;
-pub mod totp;
 pub mod timestamp;

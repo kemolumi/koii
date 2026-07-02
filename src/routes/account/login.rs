@@ -163,7 +163,7 @@ pub async fn handler(
         exp: issued_at + *REFRESH_MAX_AGE,
     });
 
-    match state.app.db.auth.issue(account.account_id.clone(), identifier, issued_at).await {
+    match state.app.db.auth.issue(account.account_id, identifier, issued_at).await {
         Ok(true) => {}
         Ok(false) => {
             tracing::error!("A nanoid collision was found.");
@@ -174,7 +174,7 @@ pub async fn handler(
             );
         }
         Err(error) => {
-            tracing::error!("Unable to issue a token for {}: {}", account.account_id, error);
+            tracing::error!("Unable to issue a token ({signed_token}): {error}");
             return base::response::internal_error(None);
         }
     }

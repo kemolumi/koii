@@ -8,7 +8,6 @@ use crate::{
     database::totp::store::TotpStoreDocument,
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::totp::Totp,
 };
 
 #[derive(Deserialize, Validate)]
@@ -63,7 +62,7 @@ pub async fn handler(
         }
     }
 
-    let totp = match Totp::new(payload.name) {
+    let totp = match base::totp::create_totp(payload.name) {
         Ok(totp) => totp,
         Err(_) => {
             return base::response::internal_error(None);
@@ -90,5 +89,5 @@ pub async fn handler(
         }
     }
 
-    base::response::result(StatusCode::CREATED, document.totp.url.into(), None)
+    base::response::result(StatusCode::CREATED, document.totp.get_url().into(), None)
 }

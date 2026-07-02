@@ -67,7 +67,7 @@ pub async fn handler(
         }
     };
 
-    match totp.verify(&payload.totp_code) {
+    match totp.check_current(&payload.totp_code) {
         Ok(true) => {}
         Ok(false) => {
             return base::response::error(StatusCode::FORBIDDEN, "Wrong TOTP code.", None);
