@@ -50,7 +50,7 @@ pub async fn handler(
         }
     }
 
-    match state.app.turnstile.verify(payload.turnstile_token, state.app.debug).await {
+    match state.app.turnstile.verify(payload.turnstile_token).await {
         Ok(true) => {}
         Ok(false) => {
             return base::response::error(

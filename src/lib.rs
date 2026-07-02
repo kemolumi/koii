@@ -13,7 +13,11 @@ use crate::{
     env::{ HOST, ORIGIN_DOMAIN, SSL_CERT, SSL_KEY },
     middlewares::track,
     routes::ily,
-    utils::{ jwt::JwtService, passkey::PasskeyService, turnstile::Turnstile },
+    utils::{
+        jwt::JwtService,
+        passkey::PasskeyService,
+        turnstile::{ Turnstile, TurnstileBypass, TurnstileVerifier },
+    },
     workers::{ WorkerSpec, Workers, WorkersAllocate },
 };
 
@@ -30,7 +34,7 @@ pub struct AppState {
     pub db: Database,
     pub jwt: JwtService,
     pub passkey: PasskeyService,
-    pub turnstile: Turnstile,
+    pub turnstile: Box<dyn TurnstileVerifier>,
     pub debug: bool,
 }
 
@@ -100,7 +104,11 @@ pub async fn app(debug: bool) -> Router {
         db: Database::default().await.unwrap(),
         jwt: JwtService::new(),
         passkey: PasskeyService::new(),
-        turnstile: Turnstile::default(),
+        turnstile: if !debug {
+            Box::new(Turnstile::new(3))
+        } else {
+            Box::new(TurnstileBypass::new())
+        },
         debug,
     });
 

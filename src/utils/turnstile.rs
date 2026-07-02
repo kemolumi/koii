@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use serde::Deserialize;
 
 use crate::env::TURNSTILE_SECRET;
@@ -17,28 +18,52 @@ pub struct TurnstileResult {
     pub metadata: Option<serde_json::Value>,
 }
 
+#[async_trait]
+pub trait TurnstileVerifier: Send + Sync {
+    async fn verify(&self, turnstile_token: String) -> Result<bool, ()>;
+}
+
+/// A bypass struct for debug & testing purposes.
+pub struct TurnstileBypass {}
+
+impl TurnstileBypass {
+    pub fn new() -> Self {
+        tracing::warn!("TurnstileBypass initialized instead of the normal Turnstile.");
+        TurnstileBypass {}
+    }
+}
+
+#[async_trait]
+impl TurnstileVerifier for TurnstileBypass {
+    async fn verify(&self, _: String) -> Result<bool, ()> {
+        tracing::warn!("Debug turnstile called.");
+        Ok(true)
+    }
+}
+
+/// An implementation of Cloudflare Turnstile.
 pub struct Turnstile {
     http_client: reqwest::Client,
     retries: usize,
 }
+
 impl Turnstile {
-    pub fn default() -> Self {
+    pub fn new(retries: usize) -> Self {
         Turnstile {
             http_client: reqwest::Client
                 ::builder()
                 .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap(),
-            retries: 3,
+            retries,
         }
     }
+}
 
+#[async_trait]
+impl TurnstileVerifier for Turnstile {
     /// More strict checks needed.
-    pub async fn verify(&self, turnstile_token: String, bypass: bool) -> Result<bool, ()> {
-        if bypass {
-            tracing::warn!("Bypass method for Turnstile was called.");
-            return Ok(true);
-        }
+    async fn verify(&self, turnstile_token: String) -> Result<bool, ()> {
         if turnstile_token.len() > 2048 {
             return Ok(false);
         }
