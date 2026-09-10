@@ -1,0 +1,43 @@
+version: "3.8"
+
+networks:
+  koiiMongodbCluster:
+    external: true
+
+services:
+  koiiMongoPrimary:
+    image: mongo:8.0.4
+    container_name: koiiMongoPrimary
+    command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongoPrimary"
+    ports:
+      - "27017:27017"
+    networks:
+      - koiiMongodbCluster
+
+  koiiMongo2:
+    image: mongo:8.0.4
+    container_name: koiiMongo2
+    command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongo2"
+    ports:
+      - "27018:27017"
+    networks:
+      - koiiMongodbCluster
+
+  koiiMongo3:
+    image: mongo:8.0.4
+    container_name: koiiMongo3
+    command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongo3"
+    ports:
+      - "27019:27017"
+    networks:
+      - koiiMongodbCluster
+
+  koiiDragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: koiiDragonfly
+    ports:
+      - "6379:6379"
+    ulimits:
+      memlock: -1
+    networks:
+      - koiiMongodbCluster
