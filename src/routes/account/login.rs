@@ -134,7 +134,7 @@ pub async fn handler(
             });
 
             return base::response::result(
-                StatusCode::OK,
+                StatusCode::CREATED,
                 LoginResponse { mfa_login: Some(signed_mfa_login) },
                 None
             );
