@@ -1,71 +1,73 @@
 #!/bin/bash
-identifier="#Koii's managed hosts"
-hosts="127.0.0.1 koiiMongoPrimary koiiMongo2 koiiMongo3"
-networks=$(podman network ls)
+set -e
+IDENTIFIER="# Koii's managed hosts"
+HOSTS_ENTRY="127.0.0.1 koiiMongoPrimary koiiMongo2 koiiMongo3"
+MONGO_NODES=(koiiMongoPrimary koiiMongo2 koiiMongo3)
+NETWORK="koiiMongodbCluster"
+COMPOSE_FILE="$(dirname "$0")/compose.yaml"
 
-if [[ "$networks" != *"koiiMongodbCluster"* ]]; then
-  podman network create koiiMongodbCluster
-fi
-
-if [[ "$1" == "remove" ]]; then
-  sudo sed -i "\#^${hosts}\$#d" "/etc/hosts"
+remove_hosts_entry() {
+  echo Removing mongo hosts from /etc/hosts:
+  sudo sed -i "\#^${HOSTS_ENTRY}\$#d" /etc/hosts
   sudo -k
-  podman exec -it koiiMongo2 mongosh --eval 'db.shutdownServer({ force: true })'
-  podman exec -it koiiMongo3 mongosh --eval 'db.shutdownServer({ force: true })'
-  podman exec -it koiiMongoPrimary mongosh --eval 'db.shutdownServer({ force: true })'
-  podman rm -f koiiMongoPrimary
-  podman rm -f koiiMongo2
-  podman rm -f koiiMongo3
-  podman rm -f koiiDragonfly
-  exit 0
-fi
+}
 
-if [[ "$1" == "down" ]]; then
-  sudo sed -i "\#^${hosts}\$#d" "/etc/hosts"
-  sudo -k
-  podman exec -it koiiMongoPrimary mongosh --eval 'db.shutdownServer({ force: true })'
-  podman exec -it koiiMongo2 mongosh --eval 'db.shutdownServer({ force: true })'
-  podman exec -it koiiMongo3 mongosh --eval 'db.shutdownServer({ force: true })'
-  podman stop koiiMongoPrimary
-  podman stop koiiMongo2
-  podman stop koiiMongo3
-  podman stop koiiDragonfly
-  exit 0
-fi
+add_hosts_entry() {
+  echo Adding mongo hosts to /etc/hosts:
+  if grep -qF "$HOSTS_ENTRY" /etc/hosts; then
+    echo "Skipping hosts write."
+  elif grep -qF "$IDENTIFIER" /etc/hosts; then
+    sudo sed -i "/^${IDENTIFIER}$/a ${HOSTS_ENTRY}" /etc/hosts
+    sudo -k
+  else
+    printf '%s\n%s\n' "$IDENTIFIER" "$HOSTS_ENTRY" | sudo tee -a /etc/hosts > /dev/null
+    sudo -k
+  fi
+}
 
-sudo sed -i "\#^${hosts}\$#d" "/etc/hosts"
-sudo -k
+case "$1" in
+  remove)
+    remove_hosts_entry
+    podman-compose -f "$COMPOSE_FILE" down -t 60
+    exit 0
+    ;;
+  down)
+    remove_hosts_entry
+    podman-compose -f "$COMPOSE_FILE" stop -t 60
+    exit 0
+    ;;
+  up)
+    remove_hosts_entry
+    podman-compose -f "$COMPOSE_FILE" start
+    sleep 2
+    podman exec -it koiiMongo2 mongosh --eval "rs.status()"
+    add_hosts_entry
+    exit 0
+    ;;
+  init)
+    remove_hosts_entry
+    podman network ls | grep -q "$NETWORK" || podman network create "$NETWORK"
+    podman-compose -f "$COMPOSE_FILE" up -d
+    sleep 1
+    podman exec -it koiiMongoPrimary mongosh --eval "rs.initiate({
+      _id: 'koiiReplicaSet',
+      members: [
+        {_id: 0, host: 'koiiMongoPrimary'},
+        {_id: 1, host: 'koiiMongo2'},
+        {_id: 2, host: 'koiiMongo3'}
+      ]
+    })"
+    sleep 1
+    podman exec -it koiiMongo2 mongosh --eval "rs.status()"
+    add_hosts_entry
+    exit 0
+    ;;
+esac
 
-podman run -d -p 27017:27017 --name koiiMongoPrimary --network koiiMongodbCluster mongo:8.0.4 mongod --replSet koiiReplicaSet --bind_ip localhost,koiiMongoPrimary
-podman run -d -p 27018:27017 --name koiiMongo2 --network koiiMongodbCluster mongo:8.0.4 mongod --replSet koiiReplicaSet --bind_ip localhost,koiiMongo2
-podman run -d -p 27019:27017 --name koiiMongo3 --network koiiMongodbCluster mongo:8.0.4 mongod --replSet koiiReplicaSet --bind_ip localhost,koiiMongo3
-podman run -d -p 6379:6379 --name koiiDragonfly --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
-
-podman start koiiMongoPrimary
-podman start koiiMongo2
-podman start koiiMongo3
-podman start koiiDragonfly
-
-sleep 1
-
-podman exec -it koiiMongoPrimary mongosh --eval "rs.initiate({
-  _id: \"koiiReplicaSet\",
-  members: [
-    {_id: 0, host: \"koiiMongoPrimary\"},
-    {_id: 1, host: \"koiiMongo2\"},
-    {_id: 2, host: \"koiiMongo3\"}
-  ]
-})"
-
-sleep 1
-
-podman exec -it koiiMongo2 mongosh --eval "rs.status()"
-
-if grep -qF "$hosts" "/etc/hosts"; then
-  echo "Skipping hosts write."
-elif grep -qF "$identifier" "/etc/hosts"; then
-  sudo sed -i "/^${identifier}$/a ${hosts}" "/etc/hosts"
-else
-  echo "$identifier" | sudo tee -a /etc/hosts
-  echo "$hosts" | sudo tee -a /etc/hosts
-fi
+echo Options:
+echo "   init: Create containers."
+echo "   remove: Remove containers."
+echo "   up: Start containers."
+echo "   down: Stop containers."
+echo
+echo Example: "$0" init
