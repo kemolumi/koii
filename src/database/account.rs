@@ -166,7 +166,7 @@ impl AccountOperations {
     pub async fn mark_deletion(&self, account_id: &str) -> Result<bool, mongodb::error::Error> {
         let result = self.collection.update_one(
             bson::doc! { "account_id": account_id },
-            bson::doc! { "$set": { "deleted": bson::DateTime::now() } }
+            bson::doc! { "$set": { "deletion_requested": Some(bson::DateTime::now()) } }
         ).await?;
 
         Ok(result.modified_count == 1)
@@ -175,7 +175,7 @@ impl AccountOperations {
     pub async fn unmark_deletion(&self, account_id: &str) -> Result<bool, mongodb::error::Error> {
         let result = self.collection.update_one(
             bson::doc! { "account_id": account_id },
-            bson::doc! { "$unset": { "deleted": "" } }
+            bson::doc! { "$unset": { "deletion_requested": "" } }
         ).await?;
 
         Ok(result.modified_count == 1)
