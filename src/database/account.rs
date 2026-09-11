@@ -79,7 +79,7 @@ impl AccountOperations {
 
         collection.create_index(
             IndexModel::builder()
-                .keys(bson::doc! { "deleted": 1 })
+                .keys(bson::doc! { "deletion_requested": 1 })
                 .options(IndexOptions::builder().expire_after(*ACCOUNT_DELETE_WINDOW).build())
                 .build()
         ).await?;
