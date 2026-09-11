@@ -43,16 +43,12 @@ impl TotpStoreOperations {
         let mut session = self.mongo_client.start_session().await?;
 
         let result = session.start_transaction().and_run2(async move |session: &mut ClientSession| {
-            let collection = session
-                .client()
-                .database("koii")
-                .collection::<TotpStoreDocument>("totp");
-            let account_collection = session
-                .client()
-                .database("koii")
-                .collection::<TotpStoreDocument>("account");
+            let database = session.client().database("koii");
+            let totp_collection = database.collection::<TotpStoreDocument>("totp");
+            let account_collection = database.collection::<TotpStoreDocument>("account");
 
-            collection.insert_one(&document).session(&mut *session).await?;
+            totp_collection.insert_one(&document).session(&mut *session).await?;
+
             let result = account_collection
                 .update_one(
                     bson::doc! { "account_id": &document.account_id },
