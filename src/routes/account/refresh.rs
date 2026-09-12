@@ -31,7 +31,7 @@ pub async fn handler(
     match state.app.db.auth.revoke(&revoking_refresh).await {
         Ok(true) => {}
         Ok(false) => {
-            tracing::warn!("Revoking an identifier failed.");
+            tracing::warn!("Failed to revoke a token.");
             return base::response::internal_error(None);
         }
         Err(_) => {
