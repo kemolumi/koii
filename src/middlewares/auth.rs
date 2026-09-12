@@ -90,10 +90,8 @@ async fn parse_cookies(
             }
             Ok(false) => {} // The token is revoked, don't add anything.
             Err(error) => {
-                tracing::error!(
-                    "Failed to query database for token `{}`: {error}",
-                    payload.value()
-                );
+                tracing::error!("Failed to query database for token: {error}");
+                return Err(error);
             }
         }
     }
@@ -109,10 +107,8 @@ async fn parse_cookies(
             }
             Ok(false) => {} // The refresh is revoked, don't add anything.
             Err(error) => {
-                tracing::error!(
-                    "Failed to query database for refresh `{}`: {error}",
-                    payload.value()
-                );
+                tracing::error!("Failed to query database for token: {error}");
+                return Err(error);
             }
         }
     }
