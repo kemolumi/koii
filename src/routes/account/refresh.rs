@@ -1,13 +1,10 @@
-use axum::{ Extension, extract::State, response::AppendHeaders };
-use nanoid::nanoid;
-use reqwest::{ StatusCode, header::SET_COOKIE };
+use axum::{ Extension, extract::State };
+use reqwest::StatusCode;
 
 use crate::{
-    base::{ self, cookies, response::ResponseModel },
-    env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
+    base::{ self, response::ResponseModel },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::{ jwt::{ KeyClaims, KeyKind } },
 };
 
 pub async fn handler(
@@ -18,40 +15,18 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
-    let issued_at = base::timestamp::now();
-    let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
-
-    let signed_token = state.app.jwt.generate(KeyClaims {
-        account_id: revoking_refresh.account_id.clone(),
-        identifier: identifier.clone(),
-        kind: KeyKind::Authentication,
-        iat: issued_at,
-        exp: issued_at + *TOKEN_MAX_AGE,
-    });
-
-    let signed_refresh = state.app.jwt.generate(KeyClaims {
-        account_id: revoking_refresh.account_id.clone(),
-        identifier: identifier.clone(),
-        kind: KeyKind::Refresh,
-        iat: issued_at,
-        exp: issued_at + *REFRESH_MAX_AGE,
-    });
-
-    match state.app.db.auth.issue(revoking_refresh.account_id.clone(), identifier, issued_at).await {
-        Ok(true) => {}
-        Ok(false) => {
-            tracing::error!("A nanoid collision was found.");
-            return base::response::error(
-                StatusCode::CONFLICT,
-                "Thank you for being this rare.",
-                None
-            );
+    let headers = match
+        base::auth::quick_issue(
+            &state.app.db.auth,
+            &state.app.jwt,
+            revoking_refresh.account_id.clone()
+        ).await
+    {
+        Ok(headers) => headers,
+        Err(bad) => {
+            return bad;
         }
-        Err(error) => {
-            tracing::error!("Unable to issue a token ({}): {error}", signed_token);
-            return base::response::internal_error(None);
-        }
-    }
+    };
 
     match state.app.db.auth.revoke(&revoking_refresh).await {
         Ok(true) => {}
@@ -64,16 +39,5 @@ pub async fn handler(
         }
     }
 
-    let token_cookie = cookies::construct("token", signed_token, "/", *TOKEN_MAX_AGE);
-    let refresh_cookie = cookies::construct(
-        "refresh",
-        signed_refresh,
-        "/account/refresh",
-        *REFRESH_MAX_AGE
-    );
-
-    base::response::success(
-        StatusCode::OK,
-        Some(AppendHeaders(vec![(SET_COOKIE, token_cookie), (SET_COOKIE, refresh_cookie)]))
-    )
+    base::response::success(StatusCode::OK, Some(headers))
 }
