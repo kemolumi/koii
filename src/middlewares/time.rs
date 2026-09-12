@@ -12,7 +12,7 @@ pub async fn padding(
 
     let finish = start.elapsed();
 
-    tracing::info!(
+    tracing::debug!(
         "Request finished in {}ms, raising to {}ms",
         finish.as_millis(),
         pad.as_millis()
