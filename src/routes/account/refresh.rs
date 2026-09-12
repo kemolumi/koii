@@ -56,11 +56,8 @@ pub async fn handler(
     match state.app.db.auth.revoke(&revoking_refresh).await {
         Ok(true) => {}
         Ok(false) => {
-            return base::response::error(
-                StatusCode::FORBIDDEN,
-                "There is an exisiting TOTP. Please delete it first.",
-                None
-            );
+            tracing::warn!("Revoking an identifier failed.");
+            return base::response::internal_error(None);
         }
         Err(_) => {
             return base::response::internal_error(None);
