@@ -173,7 +173,7 @@ impl AuthOperations {
         redis
             ::cmd("SET")
             .arg(&cache_key)
-            .arg(document.is_some() && current_time <= claims.exp)
+            .arg(document.is_some())
             .arg("EX")
             .arg(REFRESH_MAX_AGE.as_secs())
             .exec_async(&mut self.cache.clone()).await?;
