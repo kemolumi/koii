@@ -15,6 +15,17 @@ pub async fn handler(
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
+    match state.app.db.auth.revoke(&revoking_refresh).await {
+        Ok(true) => {}
+        Ok(false) => {
+            tracing::warn!("Failed to revoke a token.");
+            return base::response::internal_error(None);
+        }
+        Err(_) => {
+            return base::response::internal_error(None);
+        }
+    }
+
     let headers = match
         base::auth::quick_issue(
             &state.app.db.auth,
@@ -27,17 +38,6 @@ pub async fn handler(
             return bad;
         }
     };
-
-    match state.app.db.auth.revoke(&revoking_refresh).await {
-        Ok(true) => {}
-        Ok(false) => {
-            tracing::warn!("Failed to revoke a token.");
-            return base::response::internal_error(None);
-        }
-        Err(_) => {
-            return base::response::internal_error(None);
-        }
-    }
 
     base::response::success(StatusCode::OK, Some(headers))
 }
