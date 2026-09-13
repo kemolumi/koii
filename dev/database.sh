@@ -26,7 +26,7 @@ add_hosts_entry() {
 }
 
 case "$1" in
-  remove)
+  down)
     remove_hosts_entry
     podman-compose -f "$COMPOSE_FILE" down
     exit 0
@@ -44,7 +44,7 @@ case "$1" in
     add_hosts_entry
     exit 0
     ;;
-  init)
+  up)
     remove_hosts_entry
     podman network ls | grep -q "$NETWORK" || podman network create "$NETWORK"
     podman-compose -f "$COMPOSE_FILE" up -d
@@ -70,4 +70,4 @@ echo "   down: Remove containers."
 echo "   start: Start containers."
 echo "   stop: Stop containers."
 echo
-echo Example: "$0" init
+echo Example: "$0" up
