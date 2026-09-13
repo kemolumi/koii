@@ -2,11 +2,14 @@ use std::{ collections::HashMap, thread };
 use resend_rs::{ Resend, types::{ CreateEmailBaseOptions, EmailTemplate } };
 use tokio::sync::oneshot;
 
-use crate::env::{ EMAIL_BATCHING_WINDOW, ORIGIN_DOMAIN, RESEND_TOKEN };
+use crate::{
+    env::{ EMAIL_BATCHING_WINDOW, ORIGIN_DOMAIN, RESEND_TOKEN },
+    types::{ EmailAddress, VerifyCode },
+};
 
 pub struct VerifyEmailRequest {
-    pub email: String,
-    pub verify_code: String,
+    pub email: EmailAddress,
+    pub verify_code: VerifyCode,
 }
 
 // The oneshot param is required by design for each services, but we don't use it.
@@ -73,7 +76,7 @@ fn create_verify_base(request: &VerifyEmailRequest) -> CreateEmailBaseOptions {
 
     CreateEmailBaseOptions::new(
         format!("Koii Auth <auth@{}>", ORIGIN_DOMAIN.domain().unwrap()),
-        [&request.email],
+        [request.email.as_str()],
         "Koii email verification"
     ).with_template(EmailTemplate::new("koii-verify").with_variables(variables))
 }

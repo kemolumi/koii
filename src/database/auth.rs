@@ -5,15 +5,15 @@ use redis::{ AsyncCommands, RedisError, aio::MultiplexedConnection };
 use serde::{ Deserialize, Serialize };
 use thiserror::Error;
 
-use crate::{ base, env::REFRESH_MAX_AGE, utils::jwt::KeyClaims };
+use crate::{ base, env::REFRESH_MAX_AGE, types::{ AccountId, Identifier }, utils::jwt::KeyClaims };
 
 #[derive(Deserialize, Serialize)]
 pub struct AuthDocument {
     /// Unique ID to the account.
-    pub account_id: String,
+    pub account_id: AccountId,
 
     /// The token's identifier.
-    pub identifier: String,
+    pub identifier: Identifier,
 
     /// TTL: REFRESH_MAX_AGE
     pub issued_at: bson::DateTime,
@@ -56,8 +56,8 @@ impl AuthOperations {
     /// Add token's identifier to cache and database.
     pub async fn issue(
         &self,
-        account_id: String,
-        identifier: String,
+        account_id: AccountId,
+        identifier: Identifier,
         issued_at: Duration
     ) -> Result<bool, AuthOperationError> {
         let cache_key = format!("account:{}:token:{}", &account_id, &identifier);
@@ -133,7 +133,7 @@ impl AuthOperations {
         Ok(db_result.deleted_count == 1)
     }
 
-    pub async fn revoke_all(&self, account_id: &str) -> Result<u64, AuthOperationError> {
+    pub async fn revoke_all(&self, account_id: &AccountId) -> Result<u64, AuthOperationError> {
         let mut tokens_cursor = self.collection.find(
             bson::doc! { "account_id": account_id }
         ).await?;

@@ -1,6 +1,9 @@
 use tokio::sync::oneshot;
 
-use crate::workers::{ verify_email::VerifyEmailRequest, verify_pass::VerifyPassRequest };
+use crate::{
+    types::{ HashedPassword, RawPassword },
+    workers::{ verify_email::VerifyEmailRequest, verify_pass::VerifyPassRequest },
+};
 
 pub mod hash_pass;
 pub mod verify_pass;
@@ -19,7 +22,10 @@ pub struct WorkersAllocate {
 }
 
 pub struct Workers {
-    pub hash_pass: RequestHandler<String, Result<String, argon2::password_hash::Error>>,
+    pub hash_pass: RequestHandler<
+        RawPassword,
+        Result<HashedPassword, argon2::password_hash::Error>
+    >,
     pub verify_pass: RequestHandler<VerifyPassRequest, Result<bool, argon2::password_hash::Error>>,
     pub verify_email: RequestHandler<VerifyEmailRequest, ()>,
 }

@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use cookie_rs::{ Cookie, cookie::SameSite };
 
-use crate::env::ORIGIN_DOMAIN;
+use crate::{ env::ORIGIN_DOMAIN, types::JwtString };
 
-pub fn construct(name: &str, value: String, path: &str, max_age: Duration) -> String {
-    Cookie::builder(name, value)
+pub fn construct(name: &str, value: JwtString, path: &str, max_age: Duration) -> String {
+    Cookie::builder(name, value.to_string())
         .domain(format!(".{}", ORIGIN_DOMAIN.domain().unwrap()))
         .path(path)
         .max_age(max_age)

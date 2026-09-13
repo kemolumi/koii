@@ -1,13 +1,13 @@
 use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
 
-use crate::env::TOTP_CODE_VOID_WINDOW;
+use crate::{ env::TOTP_CODE_VOID_WINDOW, types::{ AccountId, TotpCode } };
 
 #[derive(Deserialize, Serialize)]
 pub struct TotpUsedCodeDocument {
     /// Unique ID to the account.
-    pub account_id: String,
-    pub code: String,
+    pub account_id: AccountId,
+    pub code: TotpCode,
     pub used_at: bson::DateTime,
 }
 

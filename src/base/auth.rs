@@ -6,6 +6,7 @@ use crate::{
     base::{ self, response::ResponseModel },
     database::auth::AuthOperations,
     env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, REFRESH_MAX_AGE, TOKEN_MAX_AGE },
+    types::{ AccountId, Identifier },
     utils::jwt::{ JwtService, KeyClaims, KeyKind },
 };
 
@@ -17,9 +18,9 @@ use crate::{
 pub async fn quick_issue<R>(
     auth: &AuthOperations,
     jwt: &JwtService,
-    account_id: String
+    account_id: AccountId
 ) -> Result<AppendHeaders<Vec<(HeaderName, String)>>, ResponseModel<R>> {
-    let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
+    let identifier = Identifier::new(nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH));
     let issued_at = base::timestamp::now();
 
     let signed_token = jwt.generate(KeyClaims {

@@ -42,7 +42,7 @@ pub async fn handler(
         }
     }
 
-    let Some(token) = state.app.jwt.verify(&payload.mfa_login, KeyKind::MfaLogin) else {
+    let Some(token) = state.app.jwt.verify(&payload.mfa_login.into(), KeyKind::MfaLogin) else {
         return base::response::error(StatusCode::UNAUTHORIZED, "Get out.", None);
     };
 
@@ -74,7 +74,7 @@ pub async fn handler(
 
     let totp_used = TotpUsedCodeDocument {
         account_id: token.account_id,
-        code: payload.totp_code,
+        code: payload.totp_code.into(),
         used_at: bson::DateTime::now(),
     };
 

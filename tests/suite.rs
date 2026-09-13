@@ -113,7 +113,7 @@ async fn test_suite() {
 
     // Sign in with a 2FA-enabled account.
     let response = account_login(&server, correct_password).await;
-    response.assert_status(StatusCode::OK);
+    response.assert_status(StatusCode::CREATED);
     response.assert_json(
         &json!({"success": true, "result": { "mfa_login" : axum_test::expect_json::string() } })
     );

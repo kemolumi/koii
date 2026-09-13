@@ -1,13 +1,13 @@
 use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
 
-use crate::env::MFA_LOGIN_MAX_AGE;
+use crate::{ env::MFA_LOGIN_MAX_AGE, types::{ AccountId, Identifier } };
 
 #[derive(Deserialize, Serialize)]
 pub struct MfaLoginDocument {
     /// Unique ID to the account.
-    pub account_id: String,
-    pub identifier: String,
+    pub account_id: AccountId,
+    pub identifier: Identifier,
     pub issued_at: bson::DateTime,
 }
 
@@ -36,6 +36,9 @@ impl MfaLoginOperations {
         Ok(MfaLoginOperations { collection })
     }
 
+    /// If the token is used, it could no longer return true.
+    /// 
+    /// After it got cleaned by TTL, that's also enough time for the token to be voided.
     pub async fn consume(
         &self,
         document: &MfaLoginDocument

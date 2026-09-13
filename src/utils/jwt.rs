@@ -3,7 +3,10 @@ use std::{ fs::File, io::Read, path::Path, time::Duration };
 use jsonwebtoken::{ DecodingKey, EncodingKey, Header, Validation };
 use serde::{ Deserialize, Serialize };
 
-use crate::env::{ JWT_PRIVATE, JWT_PUBLIC };
+use crate::{
+    env::{ JWT_PRIVATE, JWT_PUBLIC },
+    types::{ AccountId, Identifier, JwtString, SignedKey },
+};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum KeyKind {
@@ -38,8 +41,8 @@ pub enum KeyKind {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyClaims {
-    pub account_id: String,
-    pub identifier: String,
+    pub account_id: AccountId,
+    pub identifier: Identifier,
     pub kind: KeyKind,
     pub iat: Duration,
     pub exp: Duration,
@@ -47,8 +50,8 @@ pub struct KeyClaims {
 
 #[derive(Clone, Serialize, Deserialize)]
 struct RawKeyClaims {
-    pub account_id: String,
-    pub identifier: String,
+    pub account_id: AccountId,
+    pub identifier: Identifier,
     pub kind: KeyKind,
     pub iat: u64,
     pub exp: u64,
@@ -57,7 +60,7 @@ struct RawKeyClaims {
 #[derive(Clone)]
 pub struct JwtToken {
     pub claims: KeyClaims,
-    pub signed: String,
+    pub signed: SignedKey,
 }
 
 pub struct JwtService {
@@ -88,7 +91,7 @@ impl JwtService {
     }
 
     /// Will panic if the private key is not provided.
-    pub fn generate(&self, claims: KeyClaims) -> String {
+    pub fn generate(&self, claims: KeyClaims) -> JwtString {
         let raw_claims = RawKeyClaims {
             account_id: claims.account_id,
             identifier: claims.identifier,
@@ -105,13 +108,13 @@ impl JwtService {
             )
             .unwrap();
 
-        format!("{}.{}.{}", token.protected, token.payload, token.signature)
+        format!("{}.{}.{}", token.protected, token.payload, token.signature).into()
     }
 
     /// Any error happens during verification will return `None`.
-    pub fn verify(&self, token: &str, expect_kind: KeyKind) -> Option<KeyClaims> {
+    pub fn verify(&self, token: &JwtString, expect_kind: KeyKind) -> Option<KeyClaims> {
         let data = jsonwebtoken::decode::<RawKeyClaims>(
-            token,
+            token.as_str(),
             &self.public_key,
             &Validation::new(self.algorithm)
         );

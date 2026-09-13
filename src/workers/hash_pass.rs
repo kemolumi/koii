@@ -3,16 +3,14 @@ use std::thread;
 use argon2::{ Argon2, password_hash::{ PasswordHasher, SaltString, rand_core::OsRng } };
 use tokio::sync::{ oneshot };
 
-use crate::env::{
-    ARGON2_MEMORY_COST,
-    ARGON2_OUTPUT_LENGTH,
-    ARGON2_PARALLELISM_COST,
-    ARGON2_TIME_COST,
+use crate::{
+    env::{ ARGON2_MEMORY_COST, ARGON2_OUTPUT_LENGTH, ARGON2_PARALLELISM_COST, ARGON2_TIME_COST },
+    types::{ HashedPassword, RawPassword },
 };
 
 pub fn launch(
     rx: kanal::AsyncReceiver<
-        (String, Option<oneshot::Sender<Result<String, argon2::password_hash::Error>>>)
+        (RawPassword, Option<oneshot::Sender<Result<HashedPassword, argon2::password_hash::Error>>>)
     >,
     threads: usize
 ) {
@@ -38,7 +36,7 @@ pub fn launch(
 
 fn worker(
     rx: kanal::Receiver<
-        (String, Option<oneshot::Sender<Result<String, argon2::password_hash::Error>>>)
+        (RawPassword, Option<oneshot::Sender<Result<HashedPassword, argon2::password_hash::Error>>>)
     >,
     argon2id: Argon2
 ) {
@@ -46,7 +44,7 @@ fn worker(
         let salt = SaltString::generate(&mut OsRng);
         match argon2id.hash_password(password.as_bytes(), &salt) {
             Ok(hashed) => {
-                let _ = sender.send(Ok(hashed.to_string()));
+                let _ = sender.send(Ok(hashed.to_string().into()));
             }
             Err(error) => {
                 let _ = sender.send(Err(error));

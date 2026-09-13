@@ -9,6 +9,7 @@ use crate::{
     env::{ ACCOUNT_ID_LENGTH, EMAIL_VERIFY_CODE_LENGTH },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
+    types::{ AccountId, EmailAddress, VerifyCode },
     workers::verify_email::VerifyEmailRequest,
 };
 use nanoid::nanoid;
@@ -65,24 +66,26 @@ pub async fn handler(
         }
     }
 
-    match state.app.db.account.get_from_email(&payload.email).await {
+    let email = EmailAddress::new(payload.email);
+
+    match state.app.db.account.get_from_email(&email).await {
         Ok(None) => {}
         Ok(Some(_)) => {
             return base::response::error(StatusCode::CONFLICT, "Email already registered.", None);
         }
         Err(error) => {
-            tracing::error!("Database failed to find {}: {}", &payload.email, error);
+            tracing::error!("Database failed to find {}: {}", email, error);
             return base::response::internal_error(None);
         }
     }
 
-    let account_id = nanoid!(*ACCOUNT_ID_LENGTH);
-    let verify_code = if !state.app.debug {
-        nanoid!(*EMAIL_VERIFY_CODE_LENGTH)
+    let account_id = AccountId::new(nanoid!(*ACCOUNT_ID_LENGTH));
+    let verify_code: VerifyCode = if !state.app.debug {
+        nanoid!(*EMAIL_VERIFY_CODE_LENGTH).into()
     } else {
-        "debug".to_string()
+        "debug".into()
     };
-    let password_hash = match state.app.worker.hash_pass.send(payload.password).await {
+    let password_hash = match state.app.worker.hash_pass.send(payload.password.into()).await {
         Ok(hash) => hash,
         Err(error) => {
             tracing::error!("Hash password worker failed when creating an account: {error}");
@@ -91,8 +94,8 @@ pub async fn handler(
     };
 
     let account = AccountDocument {
-        account_id: account_id,
-        email: payload.email,
+        account_id,
+        email,
         password_hash,
         mfa_status: AccountMfaStatus { totp: false, passkey: false },
         verify_requested: Some(bson::DateTime::now()),
@@ -114,7 +117,7 @@ pub async fn handler(
 
     state.app.worker.verify_email.send_ignore(VerifyEmailRequest {
         email: account.email,
-        // unwrap(): `verify_code` can't be `None` in this situation. 
+        // unwrap(): `verify_code` can't be `None` in this situation.
         verify_code: account.verify_code.unwrap(),
     }).await;
 

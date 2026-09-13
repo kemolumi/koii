@@ -9,10 +9,12 @@ use mongodb::{
 use serde::{ Deserialize, Serialize };
 use totp_rs::TOTP;
 
+use crate::types::AccountId;
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct TotpStoreDocument {
     /// Unique ID to the account.
-    pub account_id: String,
+    pub account_id: AccountId,
     pub totp: TOTP,
 }
 
@@ -77,7 +79,7 @@ impl TotpStoreOperations {
 
     pub async fn get_from_account(
         &self,
-        account_id: &str
+        account_id: &AccountId
     ) -> Result<Option<TOTP>, mongodb::error::Error> {
         let totp_collection = self.collection.find_one(
             bson::doc! { "account_id": account_id }
@@ -89,7 +91,7 @@ impl TotpStoreOperations {
         }
     }
 
-    pub async fn delete(&self, account_id: String) -> Result<bool, mongodb::error::Error> {
+    pub async fn delete(&self, account_id: AccountId) -> Result<bool, mongodb::error::Error> {
         let mut session = self.mongo_client.start_session().await?;
 
         session.start_transaction().and_run2(async move |session: &mut ClientSession| {

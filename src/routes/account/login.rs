@@ -8,7 +8,8 @@ use crate::{
     env::{ ACCOUNT_TOKEN_IDENTIFIER_LENGTH, MFA_LOGIN_MAX_AGE },
     middlewares::auth::AuthorizationInfo,
     routes::account::AccountRoutesState,
-    utils::{ jwt::{ KeyClaims, KeyKind } },
+    types::{ AccountId, EmailAddress, Identifier, JwtString },
+    utils::jwt::{ KeyClaims, KeyKind },
     workers::verify_pass::VerifyPassRequest,
 };
 
@@ -25,7 +26,7 @@ pub struct LoginPayload {
 #[derive(Serialize, Validate, Clone)]
 pub struct LoginResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mfa_login: Option<String>,
+    pub mfa_login: Option<JwtString>,
 }
 
 pub async fn handler(
@@ -70,20 +71,22 @@ pub async fn handler(
         }
     }
 
-    let account = match state.app.db.account.get_from_email(&payload.email).await {
+    let email = EmailAddress::new(payload.email);
+
+    let account = match state.app.db.account.get_from_email(&email).await {
         Ok(Some(account)) => account,
         Ok(None) => {
             return base::response::error(StatusCode::NOT_FOUND, "Wrong email or password.", None);
         }
         Err(error) => {
-            tracing::error!("Unable to retreive account for {}: {}", payload.email, error);
+            tracing::error!("Unable to retreive account for {}: {}", email, error);
             return base::response::internal_error(None);
         }
     };
 
     let verify_pass_request = VerifyPassRequest {
-        password: payload.password,
-        hash: account.password_hash,
+        password: payload.password.into(),
+        hash: account.password_hash.into(),
     };
 
     match state.app.worker.verify_pass.send(verify_pass_request).await {
@@ -119,14 +122,16 @@ pub async fn handler(
         }
     }
 
+    let account_id = AccountId::new(account.account_id);
+
     match account.mfa_status.has_mfa() {
         false => {}
         true => {
             let issued_at = base::timestamp::now();
-            let identifier = nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH);
+            let identifier = Identifier::new(nanoid!(*ACCOUNT_TOKEN_IDENTIFIER_LENGTH));
 
             let signed_mfa_login = state.app.jwt.generate(KeyClaims {
-                account_id: account.account_id,
+                account_id,
                 identifier,
                 kind: KeyKind::MfaLogin,
                 iat: issued_at,
@@ -142,7 +147,7 @@ pub async fn handler(
     }
 
     let headers = match
-        base::auth::quick_issue(&state.app.db.auth, &state.app.jwt, account.account_id).await
+        base::auth::quick_issue(&state.app.db.auth, &state.app.jwt, account_id).await
     {
         Ok(headers) => headers,
         Err(bad) => {

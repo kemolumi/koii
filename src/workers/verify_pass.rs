@@ -3,16 +3,14 @@ use std::thread;
 use argon2::{ Argon2, PasswordHash, PasswordVerifier };
 use tokio::sync::oneshot;
 
-use crate::env::{
-    ARGON2_MEMORY_COST,
-    ARGON2_OUTPUT_LENGTH,
-    ARGON2_PARALLELISM_COST,
-    ARGON2_TIME_COST,
+use crate::{
+    env::{ ARGON2_MEMORY_COST, ARGON2_OUTPUT_LENGTH, ARGON2_PARALLELISM_COST, ARGON2_TIME_COST },
+    types::{ HashedPassword, RawPassword },
 };
 
 pub struct VerifyPassRequest {
-    pub password: String,
-    pub hash: String,
+    pub password: RawPassword,
+    pub hash: HashedPassword,
 }
 
 pub fn launch(
@@ -48,7 +46,7 @@ fn worker(
     argon2id: Argon2
 ) {
     while let Ok((request, Some(sender))) = rx.recv() {
-        match PasswordHash::new(&request.hash) {
+        match PasswordHash::new(request.hash.as_str()) {
             Ok(hash) => {
                 let _ = sender.send(
                     Ok(argon2id.verify_password(request.password.as_bytes(), &hash).is_ok())

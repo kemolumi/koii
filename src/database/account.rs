@@ -1,6 +1,9 @@
 use mongodb::{ Collection, IndexModel, bson, error::WriteFailure, options::IndexOptions };
 use serde::{ Deserialize, Serialize };
-use crate::env::{ ACCOUNT_DELETE_WINDOW, EMAIL_VERIFY_EXPIRE };
+use crate::{
+    env::{ ACCOUNT_DELETE_WINDOW, EMAIL_VERIFY_EXPIRE },
+    types::{ AccountId, EmailAddress, HashedPassword, VerifyCode },
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct AccountMfaStatus {
@@ -17,13 +20,13 @@ impl AccountMfaStatus {
 #[derive(Deserialize, Serialize)]
 pub struct AccountDocument {
     /// Unique ID to the account.
-    pub account_id: String,
+    pub account_id: AccountId,
 
     /// Account's email.
-    pub email: String,
+    pub email: EmailAddress,
 
     /// Account's password hash using argon2id.
-    pub password_hash: String,
+    pub password_hash: HashedPassword,
 
     pub mfa_status: AccountMfaStatus,
 
@@ -40,7 +43,7 @@ pub struct AccountDocument {
 
     /// The actual verify code.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub verify_code: Option<String>,
+    pub verify_code: Option<VerifyCode>,
 
     /// Mark the account as deleted when the user request for deletion.
     ///
@@ -112,7 +115,7 @@ impl AccountOperations {
     /// Useful for getting resources for an account without actually checking status every time.
     pub async fn get_active_from_id(
         &self,
-        account_id: &str
+        account_id: &AccountId
     ) -> Result<Option<AccountDocument>, mongodb::error::Error> {
         let account = self.collection.find_one(bson::doc! { "account_id": account_id }).await;
         let account = match account {
@@ -134,19 +137,22 @@ impl AccountOperations {
 
     pub async fn get_from_id(
         &self,
-        account_id: &str
+        account_id: &AccountId
     ) -> Result<Option<AccountDocument>, mongodb::error::Error> {
         self.collection.find_one(bson::doc! { "account_id": account_id }).await
     }
 
     pub async fn get_from_email(
         &self,
-        email: &str
+        email: &EmailAddress
     ) -> Result<Option<AccountDocument>, mongodb::error::Error> {
         self.collection.find_one(bson::doc! { "email": email }).await
     }
 
-    pub async fn verify_email(&self, verify_code: &str) -> Result<bool, mongodb::error::Error> {
+    pub async fn verify_email(
+        &self,
+        verify_code: &VerifyCode
+    ) -> Result<bool, mongodb::error::Error> {
         let result = self.collection.update_one(
             bson::doc! { "verify_code": verify_code },
             bson::doc! {
@@ -163,7 +169,10 @@ impl AccountOperations {
         Ok(result.modified_count == 1)
     }
 
-    pub async fn mark_deletion(&self, account_id: &str) -> Result<bool, mongodb::error::Error> {
+    pub async fn mark_deletion(
+        &self,
+        account_id: &AccountId
+    ) -> Result<bool, mongodb::error::Error> {
         let result = self.collection.update_one(
             bson::doc! { "account_id": account_id },
             bson::doc! { "$set": { "deletion_requested": Some(bson::DateTime::now()) } }
@@ -172,7 +181,10 @@ impl AccountOperations {
         Ok(result.modified_count == 1)
     }
 
-    pub async fn unmark_deletion(&self, account_id: &str) -> Result<bool, mongodb::error::Error> {
+    pub async fn unmark_deletion(
+        &self,
+        account_id: &AccountId
+    ) -> Result<bool, mongodb::error::Error> {
         let result = self.collection.update_one(
             bson::doc! { "account_id": account_id },
             bson::doc! { "$unset": { "deletion_requested": "" } }
