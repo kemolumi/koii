@@ -6,31 +6,40 @@ networks:
 
 services:
   koiiMongoPrimary:
-    image: mongo:8.0.4
+    image: mongo:8.3.9
     container_name: koiiMongoPrimary
+    stop_grace_period: 30s
     command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongoPrimary"
     ports:
       - "27017:27017"
     networks:
       - koiiMongodbCluster
+    volumes:
+      - koiiPrimary_data:/data/db:Z
 
   koiiMongo2:
-    image: mongo:8.0.4
+    image: mongo:8.3.9
     container_name: koiiMongo2
+    stop_grace_period: 30s
     command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongo2"
     ports:
       - "27018:27017"
     networks:
       - koiiMongodbCluster
+    volumes:
+      - koii2_data:/data/db:Z
 
   koiiMongo3:
-    image: mongo:8.0.4
+    image: mongo:8.3.9
     container_name: koiiMongo3
+    stop_grace_period: 30s
     command: mongod --replSet koiiReplicaSet --bind_ip "localhost,koiiMongo3"
     ports:
       - "27019:27017"
     networks:
       - koiiMongodbCluster
+    volumes:
+      - koii3_data:/data/db:Z
 
   koiiDragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
@@ -41,3 +50,11 @@ services:
       memlock: -1
     networks:
       - koiiMongodbCluster
+    volumes:
+      - koiiCache:/data/cache:Z
+
+volumes:
+  koiiPrimary_data:
+  koii2_data:
+  koii3_data:
+  koiiCache:

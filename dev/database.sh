@@ -28,18 +28,18 @@ add_hosts_entry() {
 case "$1" in
   remove)
     remove_hosts_entry
-    podman-compose -f "$COMPOSE_FILE" down -t 60
+    podman-compose -f "$COMPOSE_FILE" down
     exit 0
     ;;
-  down)
+  stop)
     remove_hosts_entry
-    podman-compose -f "$COMPOSE_FILE" stop -t 60
+    podman-compose -f "$COMPOSE_FILE" stop
     exit 0
     ;;
-  up)
+  start)
     remove_hosts_entry
     podman-compose -f "$COMPOSE_FILE" start
-    sleep 2
+    sleep 5
     podman exec -it koiiMongo2 mongosh --eval "rs.status()"
     add_hosts_entry
     exit 0
@@ -57,7 +57,7 @@ case "$1" in
         {_id: 2, host: 'koiiMongo3'}
       ]
     })"
-    sleep 1
+    sleep 5
     podman exec -it koiiMongo2 mongosh --eval "rs.status()"
     add_hosts_entry
     exit 0
@@ -65,9 +65,9 @@ case "$1" in
 esac
 
 echo Options:
-echo "   init: Create containers."
-echo "   remove: Remove containers."
-echo "   up: Start containers."
-echo "   down: Stop containers."
+echo "   up: Create containers."
+echo "   down: Remove containers."
+echo "   start: Start containers."
+echo "   stop: Stop containers."
 echo
 echo Example: "$0" init
